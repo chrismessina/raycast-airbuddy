@@ -40,17 +40,14 @@ export function ErrorView({ error, onRetry }: { error: Error; onRetry: () => voi
     );
   }
 
-  if (error instanceof ScriptingDisabledError || error instanceof AutomationConsentError) {
+  // NOTE: List.EmptyView's `description` collapses newlines — a multi-line numbered list renders
+  // as a literal "...". Keep every description to ONE short line and put the steps in the actions.
+  if (error instanceof ScriptingDisabledError) {
     return (
       <List.EmptyView
         icon={Icon.Lock}
-        title="AirBuddy Needs Permission"
-        description={
-          "Two settings control this, and either one can block it:\n\n" +
-          "1. AirBuddy → Settings → Advanced → Security → enable “Enable Apple Script for automation”.\n\n" +
-          "2. System Settings → Privacy & Security → Automation → Raycast → enable AirBuddyHelper.\n\n" +
-          "Turn both on, then try again."
-        }
+        title="Turn on Scripting in AirBuddy"
+        description="AirBuddy Settings → Advanced → Security → “Enable Apple Script for automation”"
         actions={
           <ActionPanel>
             <Action
@@ -58,6 +55,21 @@ export function ErrorView({ error, onRetry }: { error: Error; onRetry: () => voi
               icon={Icon.Gear}
               onAction={() => open("/Applications/AirBuddy.app")}
             />
+            <Action title="Try Again" icon={Icon.Repeat} onAction={onRetry} />
+          </ActionPanel>
+        }
+      />
+    );
+  }
+
+  if (error instanceof AutomationConsentError) {
+    return (
+      <List.EmptyView
+        icon={Icon.Lock}
+        title="Allow Raycast to Control AirBuddy"
+        description="System Settings → Privacy & Security → Automation → Raycast → AirBuddyHelper"
+        actions={
+          <ActionPanel>
             <Action
               title="Open Automation Settings"
               icon={Icon.Lock}

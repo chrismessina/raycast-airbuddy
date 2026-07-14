@@ -71,6 +71,22 @@ export function supportsListeningMode(device: Device): boolean {
   return device.supportedListeningModes.length > 0;
 }
 
+/**
+ * Whether this device can carry an audio route — i.e. whether audio actions (Spatial Audio) make
+ * any sense on it.
+ *
+ * Spatial Audio is an APPLICATION-level property in AirBuddy's API (it applies to the current
+ * output route, not to a device you pick), so a per-device "Toggle Spatial Audio" action is global
+ * state wearing a device costume. Offering it on a keyboard row is a category error — AirBuddy
+ * accepts the command, silently no-ops it, and the user is left wondering what happened.
+ *
+ * Gated on properties AirBuddy actually reports, not on a name or a kind guess: a headset, or
+ * anything currently serving as an audio route. A trackpad satisfies neither.
+ */
+export function isAudioDevice(device: Device): boolean {
+  return device.kind === "headset" || device.outputRoute || device.inputRoute;
+}
+
 /** The battery to show as the headline number. Headsets report combined buds; everything else, main. */
 export function primaryBattery(device: Device): Battery | undefined {
   return (

@@ -12,7 +12,7 @@ import {
 import { showFailure } from "../feedback";
 import { pollUntil } from "../poll";
 import { BatteryAlertsForm } from "../battery-alerts";
-import { type Device, type ListeningMode, type SpatialAudioMode, supportsListeningMode } from "../types";
+import { type Device, type ListeningMode, type SpatialAudioMode, isAudioDevice, supportsListeningMode } from "../types";
 
 const MODE_LABELS: Record<ListeningMode, string> = {
   normal: "Off",
@@ -181,14 +181,22 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
           shortcut={Keyboard.Shortcut.Common.Edit}
           target={<BatteryAlertsForm device={device} />}
         />
-        <Action
-          title="Toggle Spatial Audio"
-          icon={Icon.Speaker}
-          // NOT cmd+shift+S — Raycast already binds that to Common.Duplicate, so it would
-          // hijack the user's muscle memory. cmd+shift+A is free in this panel.
-          shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
-          onAction={handleToggleSpatialAudio}
-        />
+        {/*
+          Spatial Audio is an APPLICATION-level property in AirBuddy's API — it applies to the
+          current output route, not to a device you select. Offering it on a keyboard or a
+          trackpad row was a category error: global state wearing a device costume. Show it only
+          on a device that can actually carry an audio route.
+        */}
+        {isAudioDevice(device) && (
+          <Action
+            title="Toggle Spatial Audio"
+            icon={Icon.Speaker}
+            // NOT cmd+shift+S — Raycast already binds that to Common.Duplicate, so it would
+            // hijack the user's muscle memory. cmd+shift+A is free in this panel.
+            shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+            onAction={handleToggleSpatialAudio}
+          />
+        )}
       </ActionPanel.Section>
 
       <ActionPanel.Section>
