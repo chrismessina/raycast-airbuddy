@@ -74,8 +74,7 @@ export function supportsListeningMode(device: Device): boolean {
 /** The battery to show as the headline number. Headsets report combined buds; everything else, main. */
 export function primaryBattery(device: Device): Battery | undefined {
   return (
-    device.batteries.find((b) => b.position === "combined buds") ??
-    device.batteries.find((b) => b.position === "main")
+    device.batteries.find((b) => b.position === "combined buds") ?? device.batteries.find((b) => b.position === "main")
   );
 }
 

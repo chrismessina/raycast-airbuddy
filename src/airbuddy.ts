@@ -1,14 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import type {
-  AppState,
-  BatteryAlertKind,
-  BatteryPosition,
-  Device,
-  ListeningMode,
-  SpatialAudioMode,
-} from "./types";
+import type { AppState, BatteryAlertKind, BatteryPosition, Device, ListeningMode } from "./types";
 
 const execFileAsync = promisify(execFile);
 
@@ -86,11 +79,10 @@ export function classifyError(stderr: string): Error {
  */
 export async function runJXA<T>(script: string, args: string[] = []): Promise<T> {
   try {
-    const { stdout } = await execFileAsync(
-      "/usr/bin/osascript",
-      ["-l", "JavaScript", "-e", script, ...args],
-      { timeout: TIMEOUT_MS, killSignal: "SIGKILL" },
-    );
+    const { stdout } = await execFileAsync("/usr/bin/osascript", ["-l", "JavaScript", "-e", script, ...args], {
+      timeout: TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
 
     const trimmed = stdout.trim();
     if (trimmed === "") {
