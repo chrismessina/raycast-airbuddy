@@ -162,11 +162,11 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
               return (
                 <Action
                   key={mode}
-                  // AirBuddy's own Noise Control menu checkmarks the active mode. Raycast's Action
-                  // has no `subtitle` and no checked state (verified — tsc rejects `subtitle`), so
-                  // the title is the only text channel. Without a marker the submenu can't tell you
-                  // what you're already on, and you'd have to close it to read the row badge.
-                  title={isCurrent ? `${LISTENING_MODE_LABELS[mode]} — Current` : LISTENING_MODE_LABELS[mode]}
+                  // Checkmark the active mode, the way macOS Settings and AirBuddy's own Noise
+                  // Control menu do. Raycast's Action has no checked state and no `subtitle` prop
+                  // (tsc rejects it — though `ray build` compiles it happily), so the title is the
+                  // only channel available. A trailing ✓ reads clearly enough.
+                  title={isCurrent ? `${LISTENING_MODE_LABELS[mode]} ✓` : LISTENING_MODE_LABELS[mode]}
                   icon={listeningModeIcon(mode)}
                   onAction={() => handleSetMode(mode)}
                 />
