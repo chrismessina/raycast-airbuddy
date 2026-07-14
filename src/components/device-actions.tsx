@@ -163,18 +163,26 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
             }
           }}
         />
-        <Action
-          title="Show Device Menu"
-          icon={Icon.List}
-          shortcut={Keyboard.Shortcut.Common.OpenWith}
-          onAction={async () => {
-            try {
-              await showDeviceMenu(device.id);
-            } catch (error) {
-              await showFailure("Couldn't show the device menu", error);
-            }
-          }}
-        />
+        {/*
+          HEADSET-ONLY. The sdef is explicit: "Shows AirBuddy's device menu for a headset."
+          Called on a keyboard or trackpad, AirBuddy accepts it, returns exit 0, and does
+          nothing — the same accept-and-silently-no-op pattern as spatial audio. Offering an
+          action that provably can't work is worse than not offering it.
+        */}
+        {device.kind === "headset" && (
+          <Action
+            title="Show Device Menu"
+            icon={Icon.List}
+            shortcut={Keyboard.Shortcut.Common.OpenWith}
+            onAction={async () => {
+              try {
+                await showDeviceMenu(device.id);
+              } catch (error) {
+                await showFailure("Couldn't show the device menu", error);
+              }
+            }}
+          />
+        )}
         <Action.Push
           title="Configure Battery Alerts"
           icon={Icon.Bell}

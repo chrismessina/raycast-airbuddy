@@ -9,7 +9,9 @@
     "macOS"
   ],
   "categories": [
-    "Media"
+    "Applications",
+    "Media",
+    "System"
   ],
   "license": "MIT",
   "commands": [

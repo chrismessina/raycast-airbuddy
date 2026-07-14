@@ -1,4 +1,4 @@
-import { Color, Icon } from "@raycast/api";
+import { Color } from "@raycast/api";
 
 export type DeviceKind = "headset" | "mobile" | "accessory" | "host" | "Mac";
 export type DeviceDistance = "unknown" | "immediate" | "near" | "far";
@@ -135,34 +135,71 @@ export function sectionFor(device: Device): string {
 export const OTHER_SECTION = "Other Devices";
 
 /**
- * `kind` is "accessory" for both keyboards and pointing devices, so the split keys off the name.
+ * Device icons are SF Symbols, rendered to `assets/devices/` by `scripts/render-icons.swift`.
  *
- * An earlier version also matched `model.startsWith("Device1,6")` for keyboards. That was dropped:
- * it was inferred from a single sample (`Device1,671`), it ran BEFORE the pointer check, and a
- * Magic Mouse in the same `Device1,6xx` range would have been given a keyboard icon. Both real
- * devices classify correctly by name alone, so the model clause bought nothing and risked being
- * wrong. If a device is unnamed or oddly named, `Icon.Devices` is an honest fallback.
+ * Raycast's built-in `Icon` enum can't tell these devices apart: `Icon.Keyboard` renders as a robot
+ * face at 16px, `Icon.Mouse` is a featureless rounded rectangle, and an Apple Watch and an iPhone
+ * both report `kind: "mobile"` — with no watch glyph in the enum, they drew the IDENTICAL icon.
  *
- * `default` is unreachable today, but `DeviceKind` is hand-mirrored from AirBuddy's sdef and the
- * JXA payload is cast, not validated — so a kind AirBuddy adds tomorrow arrives at runtime without
- * a compile error. Falling through to `undefined` would drop the device from the UI silently.
+ * AirBuddy itself draws its device glyphs with SF Symbols at runtime (its Assets.car ships no device
+ * art — verified), so this matches the app we're a companion to.
+ *
+ * Discrimination uses `model` where `kind` is too coarse. Real values observed on live hardware:
+ *   Mac15,8 (MacBook Pro) · V54AP (iPhone board id) · AirPodsPro1,3 · Device1,671 · Device1,804
  */
-export function iconFor(device: Device): Icon {
+function deviceAsset(basename: string): { source: { light: string; dark: string } } {
+  return {
+    source: {
+      light: `devices/${basename}.png`,
+      dark: `devices/${basename}@dark.png`,
+    },
+  };
+}
+
+function assetNameFor(device: Device): string {
+  const name = device.name.toLowerCase();
+  const model = device.model.toLowerCase();
+
   switch (device.kind) {
     case "headset":
-      return Icon.Airpods;
+      if (/airpodsmax|max/.test(model) || /max/.test(name)) return "airpods-max";
+      if (/airpodspro|pro/.test(model) || /pro/.test(name)) return "airpods-pro";
+      if (/airpod/.test(model) || /airpod/.test(name)) return "airpods";
+      if (device.brand.toLowerCase().includes("beats") || /beats/.test(name)) return "beats";
+      return "headphones";
+
     case "host":
     case "Mac":
-      return Icon.Desktop;
+      // MacBooks report MacBookPro*/MacBookAir*/Mac*,* — a laptop is the safe default for a Mac
+      // that AirBuddy sees over Bluetooth, but honour an explicit desktop when we can tell.
+      if (/imac|macmini|macpro|macstudio/.test(model) || /imac|mini|studio|pro display/.test(name)) {
+        return "mac-desktop";
+      }
+      return "mac-laptop";
+
     case "mobile":
-      return Icon.Mobile;
+      // The case Raycast's enum could not express: AirBuddy reports Watch AND iPhone as "mobile".
+      if (/watch/.test(model) || /watch/.test(name)) return "watch";
+      if (/ipad/.test(model) || /ipad/.test(name)) return "ipad";
+      return "iphone";
+
     case "accessory":
-      if (/keyboard/i.test(device.name)) return Icon.Keyboard;
-      if (/trackpad|mouse/i.test(device.name)) return Icon.Mouse;
-      return Icon.Devices;
+      if (/keyboard/.test(name)) return "keyboard";
+      if (/trackpad/.test(name)) return "trackpad";
+      if (/mouse/.test(name)) return "mouse";
+      if (/speaker|homepod/.test(name)) return "speaker";
+      if (/display|monitor/.test(name)) return "display";
+      return "keyboard";
+
     default:
-      return Icon.Devices;
+      // `DeviceKind` is hand-mirrored from AirBuddy's sdef and the JXA payload is cast, not
+      // validated — a kind AirBuddy adds tomorrow arrives at runtime with no compile error.
+      return "headphones";
   }
+}
+
+export function iconFor(device: Device): { source: { light: string; dark: string } } {
+  return deviceAsset(assetNameFor(device));
 }
 
 export function batteryColor(battery: Battery): Color {
