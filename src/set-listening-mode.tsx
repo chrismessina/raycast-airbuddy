@@ -83,14 +83,22 @@ export default function Command() {
       )}
       {hasHeadset && (
         <Form.Dropdown id="mode" title="Listening Mode" defaultValue={output.listeningMode}>
-          {output.supportedListeningModes.map((mode) => (
-            <Form.Dropdown.Item
-              key={mode}
-              value={mode}
-              title={LISTENING_MODE_LABELS[mode]}
-              icon={listeningModeIcon(mode)}
-            />
-          ))}
+          {output.supportedListeningModes.map((mode) => {
+            const isCurrent = mode === output.listeningMode;
+            return (
+              <Form.Dropdown.Item
+                key={mode}
+                value={mode}
+                // Form.Dropdown.Item has the same shape as the ActionPanel Action: `title` is a
+                // plain string with no separate marker slot, and the collapsed field / row highlight
+                // alone don't read as "this is the current mode" versus "this is what's focused" —
+                // especially before the user has interacted with the list. Same trailing-✓ fix as
+                // the submenu, for the same reason.
+                title={isCurrent ? `${LISTENING_MODE_LABELS[mode]} ✓` : LISTENING_MODE_LABELS[mode]}
+                icon={listeningModeIcon(mode)}
+              />
+            );
+          })}
         </Form.Dropdown>
       )}
     </Form>
