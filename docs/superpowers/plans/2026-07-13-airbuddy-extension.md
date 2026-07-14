@@ -1743,6 +1743,10 @@ git commit -m "feat: devices list command"
 accepted the request is the same defect as an instant success toast. Only `show-dashboard` gets an
 immediate HUD — showing a window has no async state to settle.
 
+> **Note for `connect-favorite-headset` (Step 2): it needs a new client function**,
+> `getFavoriteHeadset()`, added to `src/airbuddy.ts`. The code is in that step. This is the one place
+> Task 12 touches the client layer.
+
 - [ ] **Step 1: `src/connect-nearest-headset.ts`**
 
 ```ts
@@ -1782,13 +1786,38 @@ export default async function Command() {
 
 - [ ] **Step 2: `src/connect-favorite-headset.ts`**
 
-`favoriteHeadset` reads as `missing value` even with a headset connected, so we cannot name the
-target up front and cannot poll it by name. Fall back to polling "any headset became connected", and
-fail honestly if AirBuddy has no favorite.
+> **CORRECTED 2026-07-13 (mid-implementation).** An earlier draft claimed `favorite headset` returns
+> `missing value` and that this command therefore had to poll blindly for "any headset became
+> connected." **That was wrong.** `favorite headset` resolves a **full device object — including for a
+> headset that is offline and absent from `devices`** (verified: AirPods in their case, `connected:
+> false`, `inDevicesList: false`, yet the favorite still returns id, name, and supported modes).
+>
+> So we read the favorite FIRST, name it in the toast, and poll for **that specific id**. This is
+> strictly better: it cannot misattribute a coincidental connection, and the user sees what they're
+> waiting on.
+
+This requires a new client function. **Add it to `src/airbuddy.ts`** (it belongs with the other reads):
+
+```ts
+const GET_FAVORITE = `
+function run() {
+  const app = Application("AirBuddyHelper");
+  const f = app.favoriteHeadset();
+  if (!f) return JSON.stringify(null);
+  return JSON.stringify({ id: f.id(), name: f.name() });
+}
+`;
+
+export async function getFavoriteHeadset(): Promise<{ id: string; name: string } | null> {
+  return runJXA<{ id: string; name: string } | null>(GET_FAVORITE);
+}
+```
+
+Then the command:
 
 ```ts
 import { Toast, showToast } from "@raycast/api";
-import { connectFavorite, getDevices } from "./airbuddy";
+import { connectFavorite, getDevices, getFavoriteHeadset } from "./airbuddy";
 import { showFailure } from "./feedback";
 import { pollUntil } from "./poll";
 
@@ -1796,31 +1825,32 @@ export default async function Command() {
   const toast = await showToast({ style: Toast.Style.Animated, title: "Connecting to favorite headset…" });
 
   try {
-    const before = await getDevices();
-    const alreadyConnected = new Set(
-      before.filter((d) => d.kind === "headset" && d.connected).map((d) => d.id),
-    );
+    // Resolve the favorite FIRST — it works even when the headset is in its case and absent
+    // from the devices list. If there isn't one, fail now rather than dispatching a doomed connect.
+    const favorite = await getFavoriteHeadset();
+
+    if (!favorite) {
+      toast.style = Toast.Style.Failure;
+      toast.title = "No favorite headset";
+      toast.message = "Star a headset in AirBuddy's Devices settings first.";
+      return;
+    }
+
+    // Re-bind: TS does not carry the null-check above into the closure below.
+    const target: { id: string; name: string } = favorite;
+
+    toast.title = `Connecting to ${target.name}…`;
 
     await connectFavorite();
-
-    // We can't name the favorite (AirBuddy won't tell us), so poll for ANY newly-connected headset.
-    const after = await pollUntil(
+    await pollUntil(
       () => getDevices(),
-      (devices) =>
-        devices.some((d) => d.kind === "headset" && d.connected && !alreadyConnected.has(d.id)),
-    );
-
-    const connected = after.find(
-      (d) => d.kind === "headset" && d.connected && !alreadyConnected.has(d.id),
+      (devices) => devices.find((d) => d.id === target.id)?.connected === true,
     );
 
     toast.style = Toast.Style.Success;
-    toast.title = connected ? `Connected to ${connected.name}` : "Connected to favorite headset";
+    toast.title = `Connected to ${target.name}`;
   } catch (error) {
-    await showFailure(
-      "Couldn't connect to a favorite headset. Make sure one is starred in AirBuddy.",
-      error,
-    );
+    await showFailure("Couldn't connect to the favorite headset", error);
   }
 }
 ```

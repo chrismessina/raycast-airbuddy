@@ -49,10 +49,28 @@ These are the load-bearing findings. Each one rules something out.
    feed — 5 devices on a representative run. **Therefore:** this is a *live devices* view, not a device
    manager. We cannot offer "browse all my known devices."
 
-2. **Pinned and favorite state is unreadable, and `favorite headset` returns `missing value`** even with
-   a headset connected, in-ear, and serving as both routes. There is no command to set either.
-   **Therefore:** no Pinned or Favorites filter in v1. The dropdown filters only on properties the API
-   actually reports.
+2. **Pins are unreadable. Favorites ARE readable — corrected 2026-07-13, mid-implementation.**
+
+   An earlier draft of this spec claimed `favorite headset` was broken because it returned
+   `missing value`. That was wrong: no headset had been starred yet. Once one is, it resolves — and it
+   returns a **full device object for a device that is not in the `devices` collection at all**:
+
+   ```
+   favorite headset → { name: "Master's AirPods Pro III", id: "747791EE-…", kind: "headset",
+                        connected: false, nearby: false, supportedListeningModes: [all four],
+                        batteries: [] }        ← in the case, so not reporting
+   app.devices()   → 4 devices, AirPods absent (inDevicesList: false)
+   ```
+
+   So the favorite is a live handle on an *offline* device. It is the only window we have past the
+   live-devices wall of constraint 1.
+
+   **Still true:** pins are invisible; the favorite cannot be *set* from scripting; and we get exactly
+   **one** favorite, not a list.
+
+   **Therefore:** the All / Connected / Headsets filter stands — a "Favorites" filter over a single
+   device is not a filter. But `connect-favorite-headset` is **no longer a blind command**: it can name
+   its target up front and poll for it by name. See its section.
 
 3. **`listening mode` returns a garbage value for non-headsets.** `listening mode` is declared on the
    `device` class rather than on a headset subclass, so *every* device answers the query — including
@@ -376,11 +394,19 @@ success toast in the list. So each command declares its postcondition explicitly
 Only `show dashboard` earns an immediate HUD, because it has no state to settle. The polls reuse the
 list's poll helper (bounded, non-overlapping) — one implementation, not two.
 
-**Connect Favorite Headset is knowingly awkward.** The command exists and works, but because
-`favorite headset` reads as `missing value` (constraint 2), we cannot tell the user *which* device it
-will target, we cannot poll it by name, and if no favorite is starred in AirBuddy it may simply fail.
-Ship it with a subtitle noting it uses AirBuddy's own favorite, and surface the error honestly rather
-than pretending. If the poll can't resolve a target, say so plainly.
+**Connect Favorite Headset — upgraded (constraint 2, corrected).** `favorite headset` resolves a full
+device object, *including for a headset that is offline and absent from `devices`*. So this command is
+no longer blind:
+
+1. Read `favorite headset` **first**. It returns `{ id, name, … }` even if the AirPods are in their case.
+2. If it's `missing value` → fail immediately with an honest, actionable toast: *"No favorite headset.
+   Star one in AirBuddy's Devices settings."* Do not dispatch a connect that cannot succeed.
+3. Otherwise, name the target in the animated toast up front — *"Connecting to Master's AirPods Pro
+   III…"* — then dispatch and **poll for that specific device id** becoming `connected`.
+
+This is strictly better than the earlier design (which polled for "any headset became connected"
+because it couldn't name the target): it can't misattribute a coincidental connection to the favorite,
+and the user sees which device they're waiting on.
 
 ## Battery alert form (`battery-alerts.tsx`)
 
