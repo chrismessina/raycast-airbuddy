@@ -37,6 +37,23 @@ let symbols: [(String, String)] = [
   ("rectangle.and.hand.point.up.left", "trackpad"),
   ("hifispeaker", "speaker"),
   ("display", "display"),
+
+  // Battery level glyphs. Raycast's Icon.Battery is a single static outline; these fill by charge,
+  // which is what AirBuddy's own menu bar does and what a user actually reads at a glance.
+  ("battery.0percent", "battery-0"),
+  ("battery.25percent", "battery-25"),
+  ("battery.50percent", "battery-50"),
+  ("battery.75percent", "battery-75"),
+  ("battery.100percent", "battery-100"),
+  ("battery.100percent.bolt", "battery-charging"),
+
+  // Listening modes — matching the glyphs AirBuddy draws in its own Noise Control menu:
+  // Off = plain person; Noise Cancellation = person enclosed; Transparency = person open to
+  // surroundings; Adaptive = person + sparkle.
+  ("person.fill", "mode-off"),
+  ("person.crop.circle.fill", "mode-anc"),
+  ("person.and.background.dotted", "mode-transparency"),
+  ("person.wave.2.fill", "mode-adaptive"),
 ]
 
 let outDir = "assets/devices"

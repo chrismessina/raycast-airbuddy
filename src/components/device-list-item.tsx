@@ -1,41 +1,29 @@
-import { Color, Icon, List } from "@raycast/api";
+import { Color, List } from "@raycast/api";
 import type { ReactNode } from "react";
 import {
+  LISTENING_MODE_LABELS,
   type Device,
   batteryColor,
+  batteryIcon,
   budsDiverge,
   caseBattery,
   iconFor,
+  listeningModeIcon,
   primaryBattery,
   supportsListeningMode,
 } from "../types";
 
-const MODE_LABELS: Record<string, string> = {
-  normal: "Off",
-  "noise cancellation": "ANC",
-  transparency: "Transparency",
-  adaptive: "Adaptive",
-};
-
-function subtitleFor(device: Device): string | undefined {
-  // Only headsets carry meaningful in-ear/route/proximity state.
-  if (device.kind !== "headset") return undefined;
-
-  const parts: string[] = [];
-  if (device.anyBudInEar) parts.push("In ear");
-  else if (device.anyBudInCase) parts.push("In case");
-
-  if (device.outputRoute && device.inputRoute) parts.push("Output + Input");
-  else if (device.outputRoute) parts.push("Output");
-  else if (device.inputRoute) parts.push("Input");
-
-  if (device.distance !== "unknown") {
-    parts.push(device.distance.charAt(0).toUpperCase() + device.distance.slice(1));
-  }
-
-  return parts.length > 0 ? parts.join(" · ") : undefined;
-}
-
+/**
+ * One row: icon · name · listening mode · battery.
+ *
+ * Deliberately NO subtitle. An earlier version carried "In ear · Output + Input · Near" under the
+ * name, which meant the row showed three competing pieces of chrome where AirBuddy's own menu-bar row
+ * shows one number. The in-ear and proximity state is real, but it isn't what you open this list to
+ * find out — so it lives in tooltips now, not in the layout.
+ *
+ * The listening mode DOES earn its place: it's the one thing AirBuddy's row can't tell you at a
+ * glance, and arguably the reason to reach for this extension instead of the menu bar.
+ */
 export function DeviceListItem({ device, actions }: { device: Device; actions: ReactNode }) {
   const accessories: List.Item.Accessory[] = [];
 
@@ -43,15 +31,17 @@ export function DeviceListItem({ device, actions }: { device: Device; actions: R
   // listeningMode: "transparency" with supportedListeningModes: []. Never trust the former alone.
   if (supportsListeningMode(device)) {
     accessories.push({
-      tag: { value: MODE_LABELS[device.listeningMode] ?? device.listeningMode, color: Color.Purple },
+      icon: listeningModeIcon(device.listeningMode),
+      tag: { value: LISTENING_MODE_LABELS[device.listeningMode], color: Color.Purple },
+      tooltip: `Listening mode: ${LISTENING_MODE_LABELS[device.listeningMode]}`,
     });
   }
 
   const chargeCase = caseBattery(device);
   if (chargeCase) {
     accessories.push({
-      icon: { source: Icon.Battery, tintColor: batteryColor(chargeCase) },
-      text: `${Math.round(chargeCase.level)}%`,
+      icon: batteryIcon(chargeCase),
+      text: { value: `${Math.round(chargeCase.level)}%`, color: batteryColor(chargeCase) },
       tooltip: `Charging case: ${Math.round(chargeCase.level)}%`,
     });
   }
@@ -62,33 +52,44 @@ export function DeviceListItem({ device, actions }: { device: Device; actions: R
     if (left && right) {
       accessories.push({
         text: `L ${Math.round(left.level)}% · R ${Math.round(right.level)}%`,
-        tooltip: "Earbuds differ",
+        tooltip: "The earbuds are at different levels",
       });
     }
   }
 
   const primary = primaryBattery(device);
   if (primary) {
-    const charging = primary.chargingState !== "discharging";
     accessories.push({
-      icon: {
-        source: charging ? Icon.BatteryCharging : Icon.Battery,
-        tintColor: batteryColor(primary),
-      },
-      text: `${Math.round(primary.level)}%`,
-      tooltip: primary.unreliable
-        ? `${Math.round(primary.level)}% (AirBuddy reports this reading as unreliable)`
-        : `${Math.round(primary.level)}% · ${primary.chargingState}`,
+      icon: batteryIcon(primary),
+      text: { value: `${Math.round(primary.level)}%`, color: batteryColor(primary) },
+      tooltip: tooltipFor(device, primary.level, primary.chargingState, primary.unreliable),
     });
   }
 
-  return (
-    <List.Item
-      icon={iconFor(device)}
-      title={device.name}
-      subtitle={subtitleFor(device)}
-      accessories={accessories}
-      actions={actions}
-    />
-  );
+  return <List.Item icon={iconFor(device)} title={device.name} accessories={accessories} actions={actions} />;
+}
+
+/**
+ * The state that used to live in the subtitle now lives here — real information, but not worth a line
+ * of layout on every row.
+ */
+function tooltipFor(device: Device, level: number, chargingState: string, unreliable: boolean): string {
+  const parts: string[] = [`${Math.round(level)}% · ${chargingState}`];
+
+  if (unreliable) parts.push("AirBuddy reports this reading as unreliable");
+
+  if (device.kind === "headset") {
+    if (device.anyBudInEar) parts.push("In ear");
+    else if (device.anyBudInCase) parts.push("In case");
+
+    if (device.outputRoute && device.inputRoute) parts.push("Output + Input");
+    else if (device.outputRoute) parts.push("Output");
+    else if (device.inputRoute) parts.push("Input");
+
+    if (device.distance !== "unknown") {
+      parts.push(device.distance.charAt(0).toUpperCase() + device.distance.slice(1));
+    }
+  }
+
+  return parts.join(" · ");
 }

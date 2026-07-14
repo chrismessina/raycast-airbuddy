@@ -231,6 +231,51 @@ export function iconFor(device: Device): { source: { light: string; dark: string
   return deviceAsset(assetNameFor(device));
 }
 
+/**
+ * A battery glyph that FILLS by charge, the way AirBuddy's own menu bar draws it.
+ *
+ * Raycast's `Icon.Battery` is a single static outline at every level, so a 5% battery and a 100%
+ * battery drew the identical shape — the number was the only signal. SF Symbols ships
+ * battery.0/25/50/75/100percent, so the icon itself now carries the reading.
+ */
+export function batteryIcon(battery: Battery): { source: { light: string; dark: string } } {
+  if (battery.chargingState !== "discharging") return deviceAsset("battery-charging");
+
+  const level = battery.level;
+  if (level >= 80) return deviceAsset("battery-100");
+  if (level >= 55) return deviceAsset("battery-75");
+  if (level >= 30) return deviceAsset("battery-50");
+  if (level >= 10) return deviceAsset("battery-25");
+  return deviceAsset("battery-0");
+}
+
+/**
+ * Listening-mode glyphs, matching the ones AirBuddy draws in its own Noise Control menu: Off is a
+ * plain person, Noise Cancellation a person enclosed, Transparency a person open to their
+ * surroundings, Adaptive a person with a sparkle.
+ */
+export function listeningModeIcon(mode: ListeningMode): { source: { light: string; dark: string } } {
+  switch (mode) {
+    case "noise cancellation":
+      return deviceAsset("mode-anc");
+    case "transparency":
+      return deviceAsset("mode-transparency");
+    case "adaptive":
+      return deviceAsset("mode-adaptive");
+    case "normal":
+    default:
+      return deviceAsset("mode-off");
+  }
+}
+
+/** Spelled out, never abbreviated — AirBuddy's own menu says "Noise Cancellation", not "ANC". */
+export const LISTENING_MODE_LABELS: Record<ListeningMode, string> = {
+  normal: "Off",
+  "noise cancellation": "Noise Cancellation",
+  transparency: "Transparency",
+  adaptive: "Adaptive",
+};
+
 export function batteryColor(battery: Battery): Color {
   if (battery.level < 20) return Color.Red;
   if (battery.level < 40) return Color.Orange;
