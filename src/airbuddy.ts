@@ -79,7 +79,10 @@ export function classifyError(stderr: string): Error {
  */
 export async function runJXA<T>(script: string, args: string[] = [], signal?: AbortSignal): Promise<T> {
   try {
-    const { stdout } = await execFileAsync("/usr/bin/osascript", ["-l", "JavaScript", "-e", script, ...args], {
+    // "--" terminates option parsing: without it, a value beginning with "-" would be read as an
+    // osascript flag ("illegal option -- x"). Every value we pass today is a UUID or an enum, but
+    // device names are user-editable and this is a one-token guarantee.
+    const { stdout } = await execFileAsync("/usr/bin/osascript", ["-l", "JavaScript", "-e", script, "--", ...args], {
       timeout: TIMEOUT_MS,
       killSignal: "SIGKILL",
       // Without this, navigating away from the list leaves the osascript child running to
@@ -228,14 +231,38 @@ function run() {
 }
 `;
 
-export interface FavoriteHeadset {
+export interface HeadsetHandle {
   id: string;
   name: string;
   connected: boolean;
 }
 
-export async function getFavoriteHeadset(): Promise<FavoriteHeadset | null> {
-  return runJXA<FavoriteHeadset | null>(GET_FAVORITE);
+/** @deprecated name kept for compatibility — use HeadsetHandle. */
+export type FavoriteHeadset = HeadsetHandle;
+
+export async function getFavoriteHeadset(): Promise<HeadsetHandle | null> {
+  return runJXA<HeadsetHandle | null>(GET_FAVORITE);
+}
+
+/**
+ * Same wall as the favorite: `nearest headset` resolves devices that are NOT in `devices()`.
+ * Polling `getDevices()` for the nearest headset's id can therefore spin until timeout on a connect
+ * that actually succeeded. Poll THIS handle instead.
+ *
+ * Also note names are not unique — AirBuddy's own binary carries the error string
+ * `More than one device matches "` — so a poll must match on `id`, never on `name`.
+ */
+const GET_NEAREST = `
+function run() {
+  const app = Application("AirBuddyHelper");
+  const h = app.nearestHeadset();
+  if (!h) return JSON.stringify(null);
+  return JSON.stringify({ id: h.id(), name: h.name(), connected: h.connected() });
+}
+`;
+
+export async function getNearestHeadset(): Promise<HeadsetHandle | null> {
+  return runJXA<HeadsetHandle | null>(GET_NEAREST);
 }
 
 const DISCONNECT_HEADSET = `function run() { Application("AirBuddyHelper").disconnectHeadset(); return ""; }`;
@@ -277,9 +304,21 @@ export async function toggleListeningMode(deviceId?: string): Promise<void> {
   await runJXA<void>(TOGGLE_LISTENING_MODE, [deviceId ?? ""]);
 }
 
-const TOGGLE_SPATIAL_AUDIO = `function run() { Application("AirBuddyHelper").toggleSpatialAudioMode(); return ""; }`;
-export async function toggleSpatialAudio(): Promise<void> {
-  await runJXA<void>(TOGGLE_SPATIAL_AUDIO);
+/**
+ * The sdef's optional direct-parameter is "the target output device". Pass the id whenever we know
+ * it: called bare, the command acts on whatever currently owns the output route — so a UI that
+ * offers this per-device would toggle one headset while the toast names another.
+ */
+const TOGGLE_SPATIAL_AUDIO = `
+function run(argv) {
+  const app = Application("AirBuddyHelper");
+  if (argv[0]) { app.toggleSpatialAudioMode(argv[0]); } else { app.toggleSpatialAudioMode(); }
+  return "";
+}
+`;
+
+export async function toggleSpatialAudio(deviceId?: string): Promise<void> {
+  await runJXA<void>(TOGGLE_SPATIAL_AUDIO, [deviceId ?? ""]);
 }
 
 const SHOW_STATUS_WINDOW = `function run(argv) { Application("AirBuddyHelper").showStatusWindow(argv[0]); return ""; }`;

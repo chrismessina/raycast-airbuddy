@@ -1,15 +1,27 @@
 import { useCachedPromise } from "@raycast/utils";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getDevices } from "../airbuddy";
 import type { Device } from "../types";
 
 const REFRESH_MS = 5_000;
 
-/** Return type annotated to pin the non-paginated overload. Without it, `data` infers as any[]. */
-const fetchDevices = (signal?: AbortSignal): Promise<Device[]> => getDevices(signal);
-
 export function useDevices() {
   const abortable = useRef<AbortController>(null);
+
+  // The fetcher must read the signal off the ref ITSELF.
+  //
+  // useCachedPromise does NOT inject it: it calls the fetcher as `fn(...args)` with our `args`
+  // (which is []), so a `(signal?: AbortSignal)` parameter is ALWAYS undefined. The hook only owns
+  // the controller — aborting the previous one and minting a new one. Raycast's own useFetch/useExec
+  // work because their internal fetchers close over `abortable.current?.signal` exactly like this.
+  //
+  // Without this, the AbortSignal never reaches execFile and the osascript child is never killed on
+  // unmount — it runs to the full 10s timeout while the user has already navigated away.
+  //
+  // The explicit `Promise<Device[]>` return type is load-bearing for a SECOND reason: it pins
+  // useCachedPromise's non-paginated overload. Drop it and `data` silently infers as `any[]`, with
+  // no error and no lint warning.
+  const fetchDevices = useCallback((): Promise<Device[]> => getDevices(abortable.current?.signal), []);
 
   // `isLoading` from useCachedPromise goes true on EVERY fetch — including the 5s background poll.
   // Feeding it straight to <List isLoading> pulses the loading bar every 5 seconds forever, which

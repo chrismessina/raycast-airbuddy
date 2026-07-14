@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Icon, Keyboard, Toast, showToast } from "@raycast/api";
+import { Action, ActionPanel, Icon, Keyboard, Toast, closeMainWindow, showToast } from "@raycast/api";
 import {
   connectDevice,
   disconnectDevice,
@@ -9,7 +9,7 @@ import {
   showStatusWindow,
   toggleSpatialAudio,
 } from "../airbuddy";
-import { showFailure } from "../feedback";
+import { failToast, showFailure } from "../feedback";
 import { pollUntil } from "../poll";
 import { BatteryAlertsForm } from "../battery-alerts";
 import {
@@ -92,9 +92,7 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
       // it, so polling for a change that can never come spins for the full timeout and then
       // blames the extension. (This action sits on every row — including the trackpad.)
       if (!state.currentOutputName) {
-        toast.style = Toast.Style.Failure;
-        toast.title = "No audio output device";
-        toast.message = "Connect a headset before changing Spatial Audio.";
+        failToast(toast, "No audio output device", "Connect a headset before changing Spatial Audio.");
         return;
       }
 
@@ -102,7 +100,7 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
       // not when the mode actually changes. Poll the real postcondition, and name the result.
       const before = state.spatialAudioMode;
 
-      await toggleSpatialAudio();
+      await toggleSpatialAudio(device.id);
 
       const after = await pollUntil(
         () => getAppState(),
@@ -170,6 +168,9 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
           shortcut={Keyboard.Shortcut.Common.Open}
           onAction={async () => {
             try {
+              // Close Raycast FIRST — otherwise AirBuddy's native window opens behind it and the
+              // user sees nothing happen.
+              await closeMainWindow();
               await showStatusWindow(device.id);
             } catch (error) {
               await showFailure("Couldn't show the status window", error);
@@ -189,6 +190,8 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
             shortcut={Keyboard.Shortcut.Common.OpenWith}
             onAction={async () => {
               try {
+                // Close Raycast FIRST — AirBuddy's menu would otherwise open behind it.
+                await closeMainWindow();
                 await showDeviceMenu(device.id);
               } catch (error) {
                 await showFailure("Couldn't show the device menu", error);
@@ -212,8 +215,8 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
           <Action
             title="Toggle Spatial Audio"
             icon={Icon.Speaker}
-            // NOT cmd+shift+S — Raycast already binds that to Common.Duplicate, so it would
-            // hijack the user's muscle memory. cmd+shift+A is free in this panel.
+            // No Common member means "toggle a setting", so this is deliberately custom. cmd+shift+A
+            // is free in this panel and collides with nothing in Keyboard.Shortcut.Common.
             shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
             onAction={handleToggleSpatialAudio}
           />

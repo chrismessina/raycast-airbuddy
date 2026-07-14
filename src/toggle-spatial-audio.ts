@@ -1,6 +1,6 @@
 import { Toast, showToast } from "@raycast/api";
 import { getAppState, toggleSpatialAudio } from "./airbuddy";
-import { showFailure } from "./feedback";
+import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
 import type { SpatialAudioMode } from "./types";
 
@@ -21,9 +21,7 @@ export default async function Command() {
     // that can never come spins for the full timeout and then blames the extension — when the
     // real answer is "there's no headset to apply it to."
     if (!before.currentOutputName) {
-      toast.style = Toast.Style.Failure;
-      toast.title = "No audio output device";
-      toast.message = "Connect a headset before changing Spatial Audio.";
+      failToast(toast, "No audio output device", "Connect a headset before changing Spatial Audio.");
       return;
     }
 

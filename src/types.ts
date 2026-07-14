@@ -74,29 +74,35 @@ export function supportsListeningMode(device: Device): boolean {
 /**
  * Whether connect/disconnect means anything for this device.
  *
- * `kind: "host"` is THIS Mac — the machine the extension is running on. AirBuddy reports it with
- * `connected: false`, which is meaningless for the host (you cannot Bluetooth-connect to the
- * computer you are sitting at), and a naive read of that flag offers a "Connect" action on the
- * user's own laptop. Verified: BunnySilicon II, kind "host", connected false.
+ * **`connect device` is HEADSET-ONLY.** The sdef says so outright: "Connects to a specific *headset*
+ * device." AirBuddy accepts it for anything else, returns exit 0, and silently does nothing — its
+ * binary carries no "not a headset" error, so there is no way for it to tell us we're wrong.
+ *
+ * An earlier version only excluded `kind: "host"` (this Mac, which reports a meaningless
+ * `connected: false`). That was too narrow: it left "Disconnect" as the primary ↵ action on a
+ * keyboard, a trackpad, and an iPhone. Pressing it would spin for the full poll timeout and then
+ * report a failure for a command AirBuddy never intended to honour.
  */
 export function isConnectable(device: Device): boolean {
-  return device.kind !== "host";
+  return device.kind === "headset";
 }
 
 /**
- * Whether this device can carry an audio route — i.e. whether audio actions (Spatial Audio) make
- * any sense on it.
+ * Whether Spatial Audio can be toggled *from this device's row*.
  *
- * Spatial Audio is an APPLICATION-level property in AirBuddy's API (it applies to the current
- * output route, not to a device you pick), so a per-device "Toggle Spatial Audio" action is global
- * state wearing a device costume. Offering it on a keyboard row is a category error — AirBuddy
- * accepts the command, silently no-ops it, and the user is left wondering what happened.
+ * Spatial Audio is an **application**-level property in AirBuddy's API — the sdef puts it on
+ * `application`, described as "the current Spatial Audio mode for **the output route**." The command
+ * always acts on whatever device currently owns the output route, regardless of what you pass it.
  *
- * Gated on properties AirBuddy actually reports, not on a name or a kind guess: a headset, or
- * anything currently serving as an audio route. A trackpad satisfies neither.
+ * So the action is only honest on the device that IS the output route. Offering it on any other
+ * headset produces a green "Spatial Audio: Fixed" toast on a row the command never touched — a
+ * lying success toast, which is the whole class of defect this design exists to defeat.
+ *
+ * (`inputRoute` is deliberately NOT part of this: a microphone-only route cannot receive a
+ * spatial-audio change.)
  */
 export function isAudioDevice(device: Device): boolean {
-  return device.kind === "headset" || device.outputRoute || device.inputRoute;
+  return device.outputRoute;
 }
 
 /** The battery to show as the headline number. Headsets report combined buds; everything else, main. */
@@ -171,13 +177,24 @@ function deviceAsset(basename: string): { source: { light: string; dark: string 
 function assetNameFor(device: Device): string {
   const name = device.name.toLowerCase();
   const model = device.model.toLowerCase();
+  const brand = device.brand.toLowerCase();
 
   switch (device.kind) {
     case "headset":
-      if (/airpodsmax|max/.test(model) || /max/.test(name)) return "airpods-max";
-      if (/airpodspro|pro/.test(model) || /pro/.test(name)) return "airpods-pro";
-      if (/airpod/.test(model) || /airpod/.test(name)) return "airpods";
-      if (device.brand.toLowerCase().includes("beats") || /beats/.test(name)) return "beats";
+      // Brand FIRST. A "Beats Studio Pro" would otherwise match the `pro` branch below and get an
+      // AirPods glyph — the beats branch was unreachable for any Beats model with "Pro" in its name.
+      if (brand.includes("beats") || /beats/.test(model) || /beats/.test(name)) return "beats";
+
+      // Then MODEL, which AirBuddy sets (AirPodsPro1,3) — not the user-editable name. Matching
+      // `/max/` against the name meant a headset called "Max's AirPods" rendered as AirPods Max.
+      if (/airpodsmax/.test(model)) return "airpods-max";
+      if (/airpodspro/.test(model)) return "airpods-pro";
+      if (/airpod/.test(model)) return "airpods";
+
+      // Name is the last resort, and only on unambiguous whole words.
+      if (/\bairpods max\b/.test(name)) return "airpods-max";
+      if (/\bairpods pro\b/.test(name)) return "airpods-pro";
+      if (/\bairpods\b/.test(name)) return "airpods";
       return "headphones";
 
     case "host":

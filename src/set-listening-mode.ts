@@ -1,6 +1,6 @@
 import { type LaunchProps, Toast, showToast } from "@raycast/api";
 import { getDevices, setListeningMode } from "./airbuddy";
-import { showFailure } from "./feedback";
+import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
 import { type ListeningMode, supportsListeningMode } from "./types";
 
@@ -20,17 +20,17 @@ export default async function Command(props: LaunchProps<{ arguments: Arguments.
     const headset = devices.find((d) => supportsListeningMode(d) && d.connected);
 
     if (!headset) {
-      toast.style = Toast.Style.Failure;
-      toast.title = "No headset connected";
-      toast.message = "Connect a headset that supports listening modes.";
+      failToast(toast, "No headset connected", "Connect a headset that supports listening modes.");
       return;
     }
 
     // The dropdown is static — it offers all four modes even if this headset supports fewer.
     if (!headset.supportedListeningModes.includes(mode)) {
-      toast.style = Toast.Style.Failure;
-      toast.title = `${headset.name} doesn't support ${MODE_LABELS[mode]}`;
-      toast.message = `Supported: ${headset.supportedListeningModes.map((m) => MODE_LABELS[m]).join(", ")}`;
+      failToast(
+        toast,
+        `${headset.name} doesn't support ${MODE_LABELS[mode]}`,
+        `Supported: ${headset.supportedListeningModes.map((m) => MODE_LABELS[m]).join(", ")}`,
+      );
       return;
     }
 

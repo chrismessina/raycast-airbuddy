@@ -19,6 +19,11 @@ const KIND_LABELS: Record<string, string> = {
   charged: "Charged",
 };
 
+interface AlertValue {
+  enabled: boolean;
+  threshold: string;
+}
+
 function rowKey(alert: BatteryAlert): string {
   return `${alert.kind}|${alert.position}`;
 }
@@ -28,7 +33,7 @@ export function BatteryAlertsForm({ device }: { device: Device }) {
   const [isSaving, setIsSaving] = useState(false);
 
   const [values, setValues] = useState(() => {
-    const initial: Record<string, { enabled: boolean; threshold: string }> = {};
+    const initial: Record<string, AlertValue> = {};
     for (const alert of device.alerts) {
       initial[rowKey(alert)] = {
         enabled: alert.enabled,
@@ -38,17 +43,33 @@ export function BatteryAlertsForm({ device }: { device: Device }) {
     return initial;
   });
 
+  /**
+   * Always read a row's value through here, never `values[key]` directly.
+   *
+   * `values` is seeded once, in a useState initializer. The parent re-renders every 5s with a fresh
+   * `device` prop, so if AirBuddy ever reports an alert this form didn't start with, `values[key]`
+   * is `undefined` and `.enabled` throws a TypeError — crashing the form rather than showing a row.
+   * Falling back to the alert's own current values is both crash-proof and correct.
+   */
+  function valueFor(alert: BatteryAlert): AlertValue {
+    return (
+      values[rowKey(alert)] ?? {
+        enabled: alert.enabled,
+        threshold: String(Math.round(alert.threshold)),
+      }
+    );
+  }
+
   async function handleSave() {
     // Validate before dispatching — AirBuddy may silently reject a bad value.
     for (const alert of device.alerts) {
-      const raw = values[rowKey(alert)];
+      const raw = valueFor(alert);
       const threshold = Number(raw.threshold);
       if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "Invalid threshold",
-          message: `${KIND_LABELS[alert.kind]} · ${POSITION_LABELS[alert.position]} must be 0–100.`,
-        });
+        await showFailure(
+          "Invalid threshold",
+          `${KIND_LABELS[alert.kind]} · ${POSITION_LABELS[alert.position]} must be a number from 0 to 100.`,
+        );
         return;
       }
     }
@@ -61,7 +82,7 @@ export function BatteryAlertsForm({ device }: { device: Device }) {
     const applied: string[] = [];
     try {
       for (const alert of device.alerts) {
-        const raw = values[rowKey(alert)];
+        const raw = valueFor(alert);
         const threshold = Number(raw.threshold);
 
         const unchanged = alert.enabled === raw.enabled && Math.round(alert.threshold) === threshold;
@@ -114,15 +135,15 @@ export function BatteryAlertsForm({ device }: { device: Device }) {
             <Form.Checkbox
               id={`${key}-enabled`}
               label={label}
-              value={values[key].enabled}
-              onChange={(enabled) => setValues((v) => ({ ...v, [key]: { ...v[key], enabled } }))}
+              value={valueFor(alert).enabled}
+              onChange={(enabled) => setValues((v) => ({ ...v, [key]: { ...valueFor(alert), enabled } }))}
             />
             <Form.TextField
               id={`${key}-threshold`}
               title="Threshold (%)"
               placeholder="0–100"
-              value={values[key].threshold}
-              onChange={(threshold) => setValues((v) => ({ ...v, [key]: { ...v[key], threshold } }))}
+              value={valueFor(alert).threshold}
+              onChange={(threshold) => setValues((v) => ({ ...v, [key]: { ...valueFor(alert), threshold } }))}
             />
           </Fragment>
         );

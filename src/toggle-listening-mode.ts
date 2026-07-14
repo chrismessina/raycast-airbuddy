@@ -1,6 +1,6 @@
 import { Toast, showToast } from "@raycast/api";
 import { getDevices, toggleListeningMode } from "./airbuddy";
-import { showFailure } from "./feedback";
+import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
 import { type ListeningMode, supportsListeningMode } from "./types";
 
@@ -19,9 +19,7 @@ export default async function Command() {
     const headset = before.find((d) => supportsListeningMode(d) && d.connected);
 
     if (!headset) {
-      toast.style = Toast.Style.Failure;
-      toast.title = "No headset connected";
-      toast.message = "Connect a headset that supports listening modes.";
+      failToast(toast, "No headset connected", "Connect a headset that supports listening modes.");
       return;
     }
 

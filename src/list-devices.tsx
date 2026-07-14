@@ -92,7 +92,14 @@ export default function Command() {
   const { devices, isLoading, error, revalidate } = useDevices();
   const [filter, setFilter] = useState<Filter>("all");
 
-  if (error) {
+  // Only surrender the whole list when there is genuinely nothing to show.
+  //
+  // useCachedPromise sets `error` on ANY failed fetch — including a single flaky 5s poll against a
+  // beta app talking to the Bluetooth daemon. An unconditional `if (error)` would unmount the list
+  // mid-use: the user's typed search vanishes, and five seconds later the next poll succeeds and
+  // the list silently comes back. `keepPreviousData` means we still hold the last good devices, so
+  // a transient failure should be invisible — the poll will simply try again.
+  if (error && devices.length === 0) {
     return (
       <List>
         <ErrorView error={error} onRetry={revalidate} />

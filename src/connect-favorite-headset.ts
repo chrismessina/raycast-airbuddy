@@ -1,6 +1,6 @@
 import { Toast, showToast } from "@raycast/api";
 import { type FavoriteHeadset, connectFavorite, getFavoriteHeadset } from "./airbuddy";
-import { showFailure } from "./feedback";
+import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
 
 export default async function Command() {
@@ -12,9 +12,7 @@ export default async function Command() {
     const favorite = await getFavoriteHeadset();
 
     if (!favorite) {
-      toast.style = Toast.Style.Failure;
-      toast.title = "No favorite headset";
-      toast.message = "Star a headset in AirBuddy's Devices settings first.";
+      failToast(toast, "No favorite headset", "Star a headset in AirBuddy's Devices settings first.");
       return;
     }
 
