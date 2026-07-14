@@ -2,13 +2,7 @@ import { Toast, showToast } from "@raycast/api";
 import { getAppState, toggleSpatialAudio } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
-import type { SpatialAudioMode } from "./types";
-
-const MODE_LABELS: Record<SpatialAudioMode, string> = {
-  off: "Spatial Audio Off",
-  fixed: "Spatial Audio: Fixed",
-  "head tracked": "Spatial Audio: Head Tracked",
-};
+import { SPATIAL_AUDIO_LABELS } from "./types";
 
 export default async function Command() {
   const toast = await showToast({ style: Toast.Style.Animated, title: "Toggling Spatial Audio…" });
@@ -36,7 +30,7 @@ export default async function Command() {
     );
 
     toast.style = Toast.Style.Success;
-    toast.title = MODE_LABELS[after.spatialAudioMode];
+    toast.title = SPATIAL_AUDIO_LABELS[after.spatialAudioMode];
   } catch (error) {
     await showFailure("Couldn't toggle Spatial Audio", error);
   }

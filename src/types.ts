@@ -268,12 +268,24 @@ export function listeningModeIcon(mode: ListeningMode): { source: { light: strin
   }
 }
 
-/** Spelled out, never abbreviated — AirBuddy's own menu says "Noise Cancellation", not "ANC". */
+/**
+ * Spelled out, never abbreviated — AirBuddy's own menu says "Noise Cancellation", not "ANC".
+ *
+ * ONE source of truth. This map was previously copy-pasted into three files, which is precisely how
+ * the "ANC" abbreviation survived in one of them after being removed from another.
+ */
 export const LISTENING_MODE_LABELS: Record<ListeningMode, string> = {
   normal: "Off",
   "noise cancellation": "Noise Cancellation",
   transparency: "Transparency",
   adaptive: "Adaptive",
+};
+
+/** Spatial Audio labels, phrased as toast titles ("what it is now"). */
+export const SPATIAL_AUDIO_LABELS: Record<SpatialAudioMode, string> = {
+  off: "Spatial Audio Off",
+  fixed: "Spatial Audio: Fixed",
+  "head tracked": "Spatial Audio: Head Tracked",
 };
 
 export function batteryColor(battery: Battery): Color {

@@ -2,14 +2,7 @@ import { Toast, showToast } from "@raycast/api";
 import { type OutputDevice, getOutputDevice, toggleListeningMode } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
-import type { ListeningMode } from "./types";
-
-const MODE_LABELS: Record<ListeningMode, string> = {
-  normal: "Off",
-  "noise cancellation": "Noise Cancellation",
-  transparency: "Transparency",
-  adaptive: "Adaptive",
-};
+import { LISTENING_MODE_LABELS, type ListeningMode } from "./types";
 
 export default async function Command() {
   const toast = await showToast({ style: Toast.Style.Animated, title: "Switching listening mode…" });
@@ -44,7 +37,7 @@ export default async function Command() {
     );
 
     toast.style = Toast.Style.Success;
-    toast.title = after ? MODE_LABELS[after.listeningMode] : "Listening mode changed";
+    toast.title = after ? LISTENING_MODE_LABELS[after.listeningMode] : "Listening mode changed";
   } catch (error) {
     await showFailure("Couldn't switch the listening mode", error);
   }

@@ -2,18 +2,11 @@ import { type LaunchProps, Toast, showToast } from "@raycast/api";
 import { type OutputDevice, getOutputDevice, setListeningMode } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
-import type { ListeningMode } from "./types";
-
-const MODE_LABELS: Record<ListeningMode, string> = {
-  normal: "Off",
-  "noise cancellation": "Noise Cancellation",
-  transparency: "Transparency",
-  adaptive: "Adaptive",
-};
+import { LISTENING_MODE_LABELS, type ListeningMode } from "./types";
 
 export default async function Command(props: LaunchProps<{ arguments: Arguments.SetListeningMode }>) {
   const mode = props.arguments.mode as ListeningMode;
-  const toast = await showToast({ style: Toast.Style.Animated, title: `Setting ${MODE_LABELS[mode]}…` });
+  const toast = await showToast({ style: Toast.Style.Animated, title: `Setting ${LISTENING_MODE_LABELS[mode]}…` });
 
   try {
     // Target the OUTPUT ROUTE, not "the first connected mode-capable device in devices()" — that
@@ -35,8 +28,8 @@ export default async function Command(props: LaunchProps<{ arguments: Arguments.
     if (!target.supportedListeningModes.includes(mode)) {
       failToast(
         toast,
-        `${target.name} doesn't support ${MODE_LABELS[mode]}`,
-        `Supported: ${target.supportedListeningModes.map((m) => MODE_LABELS[m]).join(", ")}`,
+        `${target.name} doesn't support ${LISTENING_MODE_LABELS[mode]}`,
+        `Supported: ${target.supportedListeningModes.map((m) => LISTENING_MODE_LABELS[m]).join(", ")}`,
       );
       return;
     }
@@ -45,7 +38,7 @@ export default async function Command(props: LaunchProps<{ arguments: Arguments.
     // happen — a 10s spinner ending in a red "never switched" toast, for a no-op.
     if (target.listeningMode === mode) {
       toast.style = Toast.Style.Success;
-      toast.title = `Already ${MODE_LABELS[mode]}`;
+      toast.title = `Already ${LISTENING_MODE_LABELS[mode]}`;
       return;
     }
 
@@ -55,12 +48,12 @@ export default async function Command(props: LaunchProps<{ arguments: Arguments.
       () => getOutputDevice(),
       (d) => d?.listeningMode === mode,
       {
-        description: `${target.name} never switched to ${MODE_LABELS[mode]}`,
+        description: `${target.name} never switched to ${LISTENING_MODE_LABELS[mode]}`,
       },
     );
 
     toast.style = Toast.Style.Success;
-    toast.title = MODE_LABELS[mode];
+    toast.title = LISTENING_MODE_LABELS[mode];
   } catch (error) {
     await showFailure("Couldn't set the listening mode", error);
   }

@@ -14,20 +14,14 @@ import { pollUntil } from "../poll";
 import { BatteryAlertsForm } from "../battery-alerts";
 import {
   LISTENING_MODE_LABELS,
+  SPATIAL_AUDIO_LABELS,
   type Device,
   type ListeningMode,
-  type SpatialAudioMode,
   isAudioDevice,
   isConnectable,
   listeningModeIcon,
   supportsListeningMode,
 } from "../types";
-
-const SPATIAL_LABELS: Record<SpatialAudioMode, string> = {
-  off: "Spatial Audio Off",
-  fixed: "Spatial Audio: Fixed",
-  "head tracked": "Spatial Audio: Head Tracked",
-};
 
 export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh: () => void }) {
   async function handleConnect() {
@@ -104,7 +98,7 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
       );
 
       toast.style = Toast.Style.Success;
-      toast.title = SPATIAL_LABELS[after.spatialAudioMode];
+      toast.title = SPATIAL_AUDIO_LABELS[after.spatialAudioMode];
     } catch (error) {
       await showFailure("Couldn't toggle Spatial Audio", error);
     }
