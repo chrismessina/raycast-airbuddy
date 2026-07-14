@@ -1,7 +1,20 @@
 import { Clipboard, Toast, showToast } from "@raycast/api";
 
 export function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+
+  // `String({})` yields "[object Object]" — copying that defeats the whole point of Copy Error.
+  // Serialize objects so the user pastes something a human (or a bug report) can actually use.
+  if (typeof error === "object" && error !== null) {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unserializable error object";
+    }
+  }
+
+  return String(error);
 }
 
 /**
