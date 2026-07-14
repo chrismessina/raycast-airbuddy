@@ -15,9 +15,72 @@
   "commands": [
     {
       "name": "list-devices",
-      "title": "List Devices",
+      "title": "Devices",
       "subtitle": "AirBuddy",
-      "description": "List nearby devices.",
+      "description": "Browse nearby devices, batteries, and connection state.",
+      "mode": "view"
+    },
+    {
+      "name": "connect-nearest-headset",
+      "title": "Connect Nearest Headset",
+      "subtitle": "AirBuddy",
+      "description": "Connect to the headset AirBuddy considers closest.",
+      "mode": "no-view"
+    },
+    {
+      "name": "connect-favorite-headset",
+      "title": "Connect Favorite Headset",
+      "subtitle": "AirBuddy",
+      "description": "Connect to the headset starred as a favorite in AirBuddy.",
+      "mode": "no-view"
+    },
+    {
+      "name": "disconnect-headset",
+      "title": "Disconnect Headset",
+      "subtitle": "AirBuddy",
+      "description": "Disconnect the currently connected headset.",
+      "mode": "no-view"
+    },
+    {
+      "name": "toggle-listening-mode",
+      "title": "Toggle Listening Mode",
+      "subtitle": "AirBuddy",
+      "description": "Cycle the listening mode on the current headset.",
+      "mode": "no-view"
+    },
+    {
+      "name": "set-listening-mode",
+      "title": "Set Listening Mode",
+      "subtitle": "AirBuddy",
+      "description": "Set a specific listening mode on the current headset.",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "mode",
+          "type": "dropdown",
+          "placeholder": "Listening Mode",
+          "required": true,
+          "data": [
+            { "title": "Off", "value": "normal" },
+            { "title": "Noise Cancellation", "value": "noise cancellation" },
+            { "title": "Transparency", "value": "transparency" },
+            { "title": "Adaptive", "value": "adaptive" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "toggle-spatial-audio",
+      "title": "Toggle Spatial Audio",
+      "subtitle": "AirBuddy",
+      "description": "Toggle Spatial Audio on the current output device.",
+      "mode": "no-view"
+    },
+    {
+      "name": "show-dashboard",
+      "title": "Show AirBuddy Dashboard",
+      "subtitle": "AirBuddy",
+      "description": "Open AirBuddy's device dashboard.",
       "mode": "no-view"
     }
   ],
