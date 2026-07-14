@@ -55,21 +55,7 @@
       "title": "Set Listening Mode",
       "subtitle": "AirBuddy",
       "description": "Set a specific listening mode on the current headset.",
-      "mode": "no-view",
-      "arguments": [
-        {
-          "name": "mode",
-          "type": "dropdown",
-          "placeholder": "Listening Mode",
-          "required": true,
-          "data": [
-            { "title": "Off", "value": "normal" },
-            { "title": "Noise Cancellation", "value": "noise cancellation" },
-            { "title": "Transparency", "value": "transparency" },
-            { "title": "Adaptive", "value": "adaptive" }
-          ]
-        }
-      ]
+      "mode": "view"
     },
     {
       "name": "toggle-spatial-audio",
