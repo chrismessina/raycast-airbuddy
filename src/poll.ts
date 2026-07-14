@@ -1,6 +1,13 @@
 export interface PollOptions {
   timeoutMs?: number;
   intervalMs?: number;
+  /**
+   * What we were waiting for, phrased for a human. Every timeout otherwise produces the same
+   * generic string across six different postconditions, so the message a user copies out of a
+   * failure toast can't distinguish "the AirPods never connected" from "Spatial Audio never
+   * flipped." Pass something specific.
+   */
+  description?: string;
 }
 
 export class PollTimeoutError extends Error {
@@ -28,7 +35,12 @@ export async function pollUntil<T>(
     if (done(value)) return value;
 
     if (Date.now() >= deadline) {
-      throw new PollTimeoutError();
+      const seconds = Math.round(timeoutMs / 1000);
+      throw new PollTimeoutError(
+        opts.description
+          ? `AirBuddy accepted the request, but ${opts.description} within ${seconds}s.`
+          : `Timed out after ${seconds}s waiting for AirBuddy to settle.`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }

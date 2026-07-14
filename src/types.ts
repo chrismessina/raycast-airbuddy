@@ -90,7 +90,15 @@ export function budsDiverge(device: Device): boolean {
   return Math.abs(left.level - right.level) >= 5;
 }
 
-/** Section titles mirror AirBuddy's own Devices panel. */
+/**
+ * Section titles mirror AirBuddy's own Devices panel.
+ *
+ * The `default` matters: `DeviceKind` is hand-mirrored from AirBuddy's sdef and the JXA payload is
+ * cast rather than validated, so a kind AirBuddy adds tomorrow reaches this function at runtime with
+ * no compile error. Without the fallback it would return `undefined`, and the list — which groups by
+ * this value and renders only known section titles — would drop the device entirely, with no error
+ * anywhere. A visible "Other Devices" section is strictly better than a device that vanishes.
+ */
 export function sectionFor(device: Device): string {
   switch (device.kind) {
     case "headset":
@@ -102,12 +110,26 @@ export function sectionFor(device: Device): string {
       return "iPhones, iPads, and Apple Watch";
     case "accessory":
       return "Keyboards, Mice, and Other Peripherals";
+    default:
+      return OTHER_SECTION;
   }
 }
 
+/** Fallback section for a device kind AirBuddy adds that we don't know about yet. */
+export const OTHER_SECTION = "Other Devices";
+
 /**
- * `kind` is "accessory" for both keyboards and trackpads, so the split keys off the
- * model identifier. Observed: Device1,671 = keyboard, Device1,804 = Magic Trackpad.
+ * `kind` is "accessory" for both keyboards and pointing devices, so the split keys off the name.
+ *
+ * An earlier version also matched `model.startsWith("Device1,6")` for keyboards. That was dropped:
+ * it was inferred from a single sample (`Device1,671`), it ran BEFORE the pointer check, and a
+ * Magic Mouse in the same `Device1,6xx` range would have been given a keyboard icon. Both real
+ * devices classify correctly by name alone, so the model clause bought nothing and risked being
+ * wrong. If a device is unnamed or oddly named, `Icon.Devices` is an honest fallback.
+ *
+ * `default` is unreachable today, but `DeviceKind` is hand-mirrored from AirBuddy's sdef and the
+ * JXA payload is cast, not validated — so a kind AirBuddy adds tomorrow arrives at runtime without
+ * a compile error. Falling through to `undefined` would drop the device from the UI silently.
  */
 export function iconFor(device: Device): Icon {
   switch (device.kind) {
@@ -119,8 +141,10 @@ export function iconFor(device: Device): Icon {
     case "mobile":
       return Icon.Mobile;
     case "accessory":
-      if (/keyboard/i.test(device.name) || device.model.startsWith("Device1,6")) return Icon.Keyboard;
+      if (/keyboard/i.test(device.name)) return Icon.Keyboard;
       if (/trackpad|mouse/i.test(device.name)) return Icon.Mouse;
+      return Icon.Devices;
+    default:
       return Icon.Devices;
   }
 }

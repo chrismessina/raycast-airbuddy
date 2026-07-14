@@ -4,12 +4,21 @@ import { DeviceActions } from "./components/device-actions";
 import { DeviceListItem } from "./components/device-list-item";
 import { ErrorView } from "./components/error-views";
 import { useDevices } from "./hooks/use-devices";
-import { type Device, sectionFor } from "./types";
+import { OTHER_SECTION, type Device, sectionFor } from "./types";
 
 type Filter = "all" | "connected" | "headsets";
 
 // Fixed order — the list must not reshuffle as devices appear and disappear.
-const SECTION_ORDER = ["AirPods", "Macs", "iPhones, iPads, and Apple Watch", "Keyboards, Mice, and Other Peripherals"];
+// Fixed order — the list must not reshuffle as devices appear and disappear. OTHER_SECTION is last
+// and normally empty; it exists so a device kind AirBuddy adds later still renders instead of being
+// silently filtered out of the list (this array is what decides which sections are drawn at all).
+const SECTION_ORDER = [
+  "AirPods",
+  "Macs",
+  "iPhones, iPads, and Apple Watch",
+  "Keyboards, Mice, and Other Peripherals",
+  OTHER_SECTION,
+];
 
 function applyFilter(devices: Device[], filter: Filter): Device[] {
   switch (filter) {

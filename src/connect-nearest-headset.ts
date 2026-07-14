@@ -22,6 +22,7 @@ export default async function Command() {
     await pollUntil(
       () => getDevices(),
       (devices) => devices.find((d) => d.name === target)?.connected === true,
+      { description: `${target} never connected` },
     );
 
     toast.style = Toast.Style.Success;

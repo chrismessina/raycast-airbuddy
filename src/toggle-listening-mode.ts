@@ -28,7 +28,9 @@ export default async function Command() {
     const previous = headset.listeningMode;
     const id: string = headset.id;
 
-    await toggleListeningMode();
+    // Pass the id: called bare, AirBuddy picks its own target, which may not be the headset we
+    // selected above — then we'd poll a device that never changes while the mode flips elsewhere.
+    await toggleListeningMode(id);
 
     const after = await pollUntil(
       () => getDevices(),
@@ -36,6 +38,7 @@ export default async function Command() {
         const current = devices.find((d) => d.id === id);
         return current !== undefined && current.listeningMode !== previous;
       },
+      { description: `${headset.name} never switched modes` },
     );
 
     const now = after.find((d) => d.id === id)?.listeningMode;

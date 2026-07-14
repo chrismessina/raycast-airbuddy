@@ -40,6 +40,7 @@ export default async function Command(props: LaunchProps<{ arguments: Arguments.
     await pollUntil(
       () => getDevices(),
       (list) => list.find((d) => d.id === id)?.listeningMode === mode,
+      { description: `${headset.name} never switched to ${MODE_LABELS[mode]}` },
     );
 
     toast.style = Toast.Style.Success;

@@ -42,6 +42,7 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
       await pollUntil(
         () => getDevices(),
         (devices) => devices.find((d) => d.id === device.id)?.connected === true,
+        { description: `${device.name} never connected` },
       );
 
       toast.style = Toast.Style.Success;
@@ -63,6 +64,7 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
       await pollUntil(
         () => getDevices(),
         (devices) => devices.find((d) => d.id === device.id)?.connected !== true,
+        { description: `${device.name} never disconnected` },
       );
 
       toast.style = Toast.Style.Success;
@@ -77,15 +79,28 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
     const toast = await showToast({ style: Toast.Style.Animated, title: "Toggling Spatial Audio…" });
 
     try {
+      const state = await getAppState();
+
+      // Fail fast. With no audio output route, AirBuddy accepts the toggle and silently no-ops
+      // it, so polling for a change that can never come spins for the full timeout and then
+      // blames the extension. (This action sits on every row — including the trackpad.)
+      if (!state.currentOutputName) {
+        toast.style = Toast.Style.Failure;
+        toast.title = "No audio output device";
+        toast.message = "Connect a headset before changing Spatial Audio.";
+        return;
+      }
+
       // Fire-and-forget, like every AirBuddy action: the command returns on request-accept,
       // not when the mode actually changes. Poll the real postcondition, and name the result.
-      const before = (await getAppState()).spatialAudioMode;
+      const before = state.spatialAudioMode;
 
       await toggleSpatialAudio();
 
       const after = await pollUntil(
         () => getAppState(),
         (state) => state.spatialAudioMode !== before,
+        { description: "Spatial Audio never changed" },
       );
 
       toast.style = Toast.Style.Success;
@@ -102,6 +117,7 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
       await pollUntil(
         () => getDevices(),
         (devices) => devices.find((d) => d.id === device.id)?.listeningMode === mode,
+        { description: `${device.name} never switched to ${MODE_LABELS[mode]}` },
       );
       toast.style = Toast.Style.Success;
       toast.title = MODE_LABELS[mode];

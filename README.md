@@ -40,8 +40,10 @@ Raycast → enable **AirBuddyHelper**.
 your full roster. AirPods in their case, a powered-off Mac, or a pinned-but-absent device won't be
 listed. Devices appearing and disappearing as they come in and out of range is normal.
 
-**Pins and favorites aren't visible.** AirBuddy's pin and star settings aren't exposed to AppleScript,
-so this extension can't show or change them. Use AirBuddy's own UI for those.
+**Pins aren't visible, and favorites are read-only.** AirBuddy's pin settings aren't exposed to
+AppleScript at all. Your favorite headset *can* be read — that's what **Connect Favorite Headset** uses,
+and it works even when the headset is in its case — but it can't be changed from here. Star a headset in
+AirBuddy's own Devices settings.
 
 **Actions are asynchronous.** Connecting takes a moment. The extension waits for the device to actually
 connect before reporting success rather than claiming it immediately.

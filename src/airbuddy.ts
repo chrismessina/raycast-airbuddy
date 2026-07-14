@@ -77,11 +77,14 @@ export function classifyError(stderr: string): Error {
  * inside the script from the `argv` parameter of `run()`. NEVER interpolate a device name or id
  * into the script source — a device named `"); doSomething((` would otherwise execute.
  */
-export async function runJXA<T>(script: string, args: string[] = []): Promise<T> {
+export async function runJXA<T>(script: string, args: string[] = [], signal?: AbortSignal): Promise<T> {
   try {
     const { stdout } = await execFileAsync("/usr/bin/osascript", ["-l", "JavaScript", "-e", script, ...args], {
       timeout: TIMEOUT_MS,
       killSignal: "SIGKILL",
+      // Without this, navigating away from the list leaves the osascript child running to
+      // completion (up to TIMEOUT_MS). execFile kills the process when the signal aborts.
+      signal,
     });
 
     const trimmed = stdout.trim();
@@ -96,6 +99,11 @@ export async function runJXA<T>(script: string, args: string[] = []): Promise<T>
     }
   } catch (error) {
     if (error instanceof AirBuddyError) throw error;
+
+    // An aborted fetch is not a failure — the user navigated away. Rethrow it as-is so
+    // callers can ignore it, rather than classifying it as a real AirBuddy error and
+    // showing the user a red toast for something they caused on purpose.
+    if (error instanceof Error && error.name === "AbortError") throw error;
 
     const stderr =
       typeof error === "object" && error !== null && "stderr" in error
@@ -142,8 +150,8 @@ function run() {
 }
 `;
 
-export async function getDevices(): Promise<Device[]> {
-  return runJXA<Device[]>(GET_DEVICES);
+export async function getDevices(signal?: AbortSignal): Promise<Device[]> {
+  return runJXA<Device[]>(GET_DEVICES, [], signal);
 }
 
 const GET_APP_STATE = `
@@ -205,17 +213,29 @@ export async function connectFavorite(): Promise<void> {
   await runJXA<void>(CONNECT_FAVORITE);
 }
 
+/**
+ * `connected` is essential, not decorative: the favorite headset is frequently ABSENT from the
+ * `devices` collection (verified — AirPods in their case still resolve as the favorite, with
+ * `inDevicesList: false`). So a connect must be polled on THIS handle, not by searching
+ * `getDevices()` for the favorite's id, which may never appear there.
+ */
 const GET_FAVORITE = `
 function run() {
   const app = Application("AirBuddyHelper");
   const f = app.favoriteHeadset();
   if (!f) return JSON.stringify(null);
-  return JSON.stringify({ id: f.id(), name: f.name() });
+  return JSON.stringify({ id: f.id(), name: f.name(), connected: f.connected() });
 }
 `;
 
-export async function getFavoriteHeadset(): Promise<{ id: string; name: string } | null> {
-  return runJXA<{ id: string; name: string } | null>(GET_FAVORITE);
+export interface FavoriteHeadset {
+  id: string;
+  name: string;
+  connected: boolean;
+}
+
+export async function getFavoriteHeadset(): Promise<FavoriteHeadset | null> {
+  return runJXA<FavoriteHeadset | null>(GET_FAVORITE);
 }
 
 const DISCONNECT_HEADSET = `function run() { Application("AirBuddyHelper").disconnectHeadset(); return ""; }`;
@@ -239,9 +259,22 @@ export async function setListeningMode(mode: ListeningMode, deviceId?: string): 
   await runJXA<void>(SET_LISTENING_MODE, [mode, deviceId ?? ""]);
 }
 
-const TOGGLE_LISTENING_MODE = `function run() { Application("AirBuddyHelper").toggleListeningMode(); return ""; }`;
-export async function toggleListeningMode(): Promise<void> {
-  await runJXA<void>(TOGGLE_LISTENING_MODE);
+/**
+ * The sdef declares `toggle listening mode` with an OPTIONAL direct parameter (device | text).
+ * Pass the device id whenever we know it: called bare, AirBuddy picks its own target, and with
+ * two headsets connected that can differ from the one the caller selected — so the caller polls
+ * a device that never changes while the mode flips on the other one.
+ */
+const TOGGLE_LISTENING_MODE = `
+function run(argv) {
+  const app = Application("AirBuddyHelper");
+  if (argv[0]) { app.toggleListeningMode(argv[0]); } else { app.toggleListeningMode(); }
+  return "";
+}
+`;
+
+export async function toggleListeningMode(deviceId?: string): Promise<void> {
+  await runJXA<void>(TOGGLE_LISTENING_MODE, [deviceId ?? ""]);
 }
 
 const TOGGLE_SPATIAL_AUDIO = `function run() { Application("AirBuddyHelper").toggleSpatialAudioMode(); return ""; }`;

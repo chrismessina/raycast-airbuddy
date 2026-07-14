@@ -1,5 +1,5 @@
 import { Toast, showToast } from "@raycast/api";
-import { connectFavorite, getDevices, getFavoriteHeadset } from "./airbuddy";
+import { type FavoriteHeadset, connectFavorite, getFavoriteHeadset } from "./airbuddy";
 import { showFailure } from "./feedback";
 import { pollUntil } from "./poll";
 
@@ -19,14 +19,25 @@ export default async function Command() {
     }
 
     // Re-bind: TS does not carry the null-check above into the closure below.
-    const target: { id: string; name: string } = favorite;
+    const target: FavoriteHeadset = favorite;
+
+    if (target.connected) {
+      toast.style = Toast.Style.Success;
+      toast.title = `${target.name} is already connected`;
+      return;
+    }
 
     toast.title = `Connecting to ${target.name}…`;
 
     await connectFavorite();
+
+    // Poll the FAVORITE HANDLE, not getDevices(). The favorite is routinely absent from the
+    // devices collection (it's the only window past the live-devices wall), so searching
+    // getDevices() for its id can spin until timeout on a connect that actually succeeded.
     await pollUntil(
-      () => getDevices(),
-      (devices) => devices.find((d) => d.id === target.id)?.connected === true,
+      () => getFavoriteHeadset(),
+      (f) => f?.connected === true,
+      { description: `${target.name} never connected` },
     );
 
     toast.style = Toast.Style.Success;
