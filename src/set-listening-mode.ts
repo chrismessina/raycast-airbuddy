@@ -1,8 +1,8 @@
 import { type LaunchProps, Toast, showToast } from "@raycast/api";
-import { getDevices, setListeningMode } from "./airbuddy";
+import { type OutputDevice, getOutputDevice, setListeningMode } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
-import { type ListeningMode, supportsListeningMode } from "./types";
+import type { ListeningMode } from "./types";
 
 const MODE_LABELS: Record<ListeningMode, string> = {
   normal: "Off",
@@ -16,31 +16,47 @@ export default async function Command(props: LaunchProps<{ arguments: Arguments.
   const toast = await showToast({ style: Toast.Style.Animated, title: `Setting ${MODE_LABELS[mode]}…` });
 
   try {
-    const devices = await getDevices();
-    const headset = devices.find((d) => supportsListeningMode(d) && d.connected);
+    // Target the OUTPUT ROUTE, not "the first connected mode-capable device in devices()" — that
+    // collection has no documented ordering, so with two headsets connected the old code was a coin
+    // flip, while this command's manifest promises "the current headset".
+    const output = await getOutputDevice();
 
-    if (!headset) {
+    if (!output || output.supportedListeningModes.length === 0) {
       failToast(toast, "No headset connected", "Connect a headset that supports listening modes.");
       return;
     }
 
-    // The dropdown is static — it offers all four modes even if this headset supports fewer.
-    if (!headset.supportedListeningModes.includes(mode)) {
+    // Re-bind: TS does not carry the guard above into the closures below.
+    const target: OutputDevice = output;
+
+    // The dropdown is static (declared in the manifest), so it offers all four modes regardless of
+    // what this headset actually supports. Refuse locally: AirBuddy would accept the command and
+    // silently no-op it, and we'd poll for a change that can never come.
+    if (!target.supportedListeningModes.includes(mode)) {
       failToast(
         toast,
-        `${headset.name} doesn't support ${MODE_LABELS[mode]}`,
-        `Supported: ${headset.supportedListeningModes.map((m) => MODE_LABELS[m]).join(", ")}`,
+        `${target.name} doesn't support ${MODE_LABELS[mode]}`,
+        `Supported: ${target.supportedListeningModes.map((m) => MODE_LABELS[m]).join(", ")}`,
       );
       return;
     }
 
-    const id: string = headset.id;
-    await setListeningMode(mode, id);
+    // Already in that mode? Say so. Otherwise the poll below waits for a change that will never
+    // happen — a 10s spinner ending in a red "never switched" toast, for a no-op.
+    if (target.listeningMode === mode) {
+      toast.style = Toast.Style.Success;
+      toast.title = `Already ${MODE_LABELS[mode]}`;
+      return;
+    }
+
+    await setListeningMode(mode, target.id);
 
     await pollUntil(
-      () => getDevices(),
-      (list) => list.find((d) => d.id === id)?.listeningMode === mode,
-      { description: `${headset.name} never switched to ${MODE_LABELS[mode]}` },
+      () => getOutputDevice(),
+      (d) => d?.listeningMode === mode,
+      {
+        description: `${target.name} never switched to ${MODE_LABELS[mode]}`,
+      },
     );
 
     toast.style = Toast.Style.Success;

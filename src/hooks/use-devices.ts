@@ -5,6 +5,9 @@ import type { Device } from "../types";
 
 const REFRESH_MS = 5_000;
 
+/** Consecutive failed polls before we stop trusting the stale data and surface the error. */
+const FAILURE_STREAK_LIMIT = 2;
+
 export function useDevices() {
   const abortable = useRef<AbortController>(null);
 
@@ -38,6 +41,14 @@ export function useDevices() {
   // guard never skips anything. The lifecycle callbacks are the only honest signal.
   const inFlight = useRef(false);
 
+  // Consecutive failures, so a PERSISTENT failure can surface without a transient one flickering.
+  //
+  // `keepPreviousData` means one flaky poll shouldn't tear down the list — but it also means that if
+  // AirBuddy QUITS after the list has loaded, every subsequent poll fails while the stale rows sit
+  // there forever, showing connection and battery state that is no longer true, with no error and no
+  // way to recover. Two strikes in a row (~10s) is a real outage, not a hiccup.
+  const [failureStreak, setFailureStreak] = useState(0);
+
   const { data, isLoading, error, revalidate } = useCachedPromise(fetchDevices, [], {
     initialData: [] as Device[],
     keepPreviousData: true,
@@ -48,10 +59,12 @@ export function useDevices() {
     onData: () => {
       inFlight.current = false;
       setHasLoadedOnce(true);
+      setFailureStreak(0);
     },
     onError: () => {
       inFlight.current = false;
       setHasLoadedOnce(true);
+      setFailureStreak((n) => n + 1);
     },
   });
 
@@ -71,6 +84,14 @@ export function useDevices() {
     /** True ONLY until the first fetch resolves. Background polls refresh silently. */
     isLoading: isLoading && !hasLoadedOnce,
     error,
+    /**
+     * True when the failure is PERSISTENT (2+ consecutive), not a single flaky poll.
+     *
+     * The list shows the error view when this is set — even if it still holds stale devices — so a
+     * user whose AirBuddy has quit sees "AirBuddy Isn't Running" instead of rows that silently
+     * stopped being true.
+     */
+    isFailing: error !== undefined && failureStreak >= FAILURE_STREAK_LIMIT,
     revalidate,
   };
 }

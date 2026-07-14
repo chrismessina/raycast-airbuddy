@@ -61,10 +61,21 @@ export function classifyError(stderr: string): Error {
   if (text.includes("-1743") || text.includes("not permitted") || text.includes("not authorized")) {
     return new AutomationConsentError();
   }
-  if (text.includes("-600") || text.includes("application isn't running")) {
+  // -2700 ("Application can't be found") is what macOS ACTUALLY returns when AirBuddyHelper can't be
+  // reached — verified. Without this branch it fell through to the generic error below, so a user
+  // whose helper wasn't running got "Something Went Wrong" instead of the launch-and-retry view.
+  // Note the apostrophe here is U+2019, which is what osascript emits — match both forms.
+  if (
+    text.includes("-2700") ||
+    text.includes("-600") ||
+    text.includes("application isn't running") ||
+    text.includes("application isn’t running") ||
+    text.includes("application can't be found") ||
+    text.includes("application can’t be found")
+  ) {
     return new AirBuddyNotRunningError();
   }
-  if (text.includes("-1728") || text.includes("can't get application")) {
+  if (text.includes("-1728") || text.includes("can't get application") || text.includes("can’t get application")) {
     return new AirBuddyNotInstalledError();
   }
   return new AirBuddyError(stderr.trim() || "Unknown AirBuddy error");
@@ -177,12 +188,21 @@ export async function getAppState(): Promise<AppState> {
   return runJXA<AppState>(GET_APP_STATE);
 }
 
+/**
+ * argv[2] is a TRISTATE: "" (don't send the param at all), "true", or "false".
+ *
+ * An earlier version sent `String(opts.microphoneEnabled ?? false)` and only set the option when the
+ * string was "true" — so a caller explicitly asking for `microphoneEnabled: false` was silently
+ * indistinguishable from not asking at all, and the parameter was never sent. The sdef declares it as
+ * an optional boolean, so `false` is a meaningful request ("connect, but don't enable the mic").
+ */
 const CONNECT_DEVICE = `
 function run(argv) {
   const app = Application("AirBuddyHelper");
   const opts = {};
   if (argv[1]) opts.listeningMode = argv[1];
   if (argv[2] === "true") opts.microphoneEnabled = true;
+  else if (argv[2] === "false") opts.microphoneEnabled = false;
   app.connectDevice(argv[0], opts);
   return "";
 }
@@ -192,7 +212,9 @@ export async function connectDevice(
   id: string,
   opts: { listeningMode?: ListeningMode; microphoneEnabled?: boolean } = {},
 ): Promise<void> {
-  await runJXA<void>(CONNECT_DEVICE, [id, opts.listeningMode ?? "", String(opts.microphoneEnabled ?? false)]);
+  // "" means "don't send the parameter" — distinct from an explicit false.
+  const mic = opts.microphoneEnabled === undefined ? "" : String(opts.microphoneEnabled);
+  await runJXA<void>(CONNECT_DEVICE, [id, opts.listeningMode ?? "", mic]);
 }
 
 const DISCONNECT_DEVICE = `
@@ -263,6 +285,47 @@ function run() {
 
 export async function getNearestHeadset(): Promise<HeadsetHandle | null> {
   return runJXA<HeadsetHandle | null>(GET_NEAREST);
+}
+
+/**
+ * The device currently serving as the audio OUTPUT route, with its id.
+ *
+ * This exists because `AppState` carries only a *name*, which forced the listening-mode and
+ * disconnect commands to guess their target by scanning `devices()` for "the first connected,
+ * mode-capable headset". That guess is wrong whenever two headsets are connected: `devices()` has no
+ * documented ordering, and AirBuddy picks its own target for the bare `toggle listening mode` /
+ * `disconnect headset` commands. The result is that the mode flips on one headset while we poll the
+ * other, and time out reporting failure for a command that worked.
+ *
+ * The output route is the honest answer to "which headset does the user mean?" — it is the one
+ * they're listening to.
+ */
+const GET_OUTPUT_DEVICE = `
+function run() {
+  const app = Application("AirBuddyHelper");
+  var d = null;
+  try { d = app.currentOutputDevice(); } catch (e) { d = null; }
+  if (!d) return JSON.stringify(null);
+  return JSON.stringify({
+    id: d.id(),
+    name: d.name(),
+    connected: d.connected(),
+    listeningMode: d.listeningMode(),
+    supportedListeningModes: d.supportedListeningModes()
+  });
+}
+`;
+
+export interface OutputDevice {
+  id: string;
+  name: string;
+  connected: boolean;
+  listeningMode: ListeningMode;
+  supportedListeningModes: ListeningMode[];
+}
+
+export async function getOutputDevice(): Promise<OutputDevice | null> {
+  return runJXA<OutputDevice | null>(GET_OUTPUT_DEVICE);
 }
 
 const DISCONNECT_HEADSET = `function run() { Application("AirBuddyHelper").disconnectHeadset(); return ""; }`;

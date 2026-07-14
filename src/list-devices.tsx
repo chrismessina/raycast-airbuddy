@@ -89,17 +89,21 @@ function EmptyState({ filter, isLoading, onShowAll }: { filter: Filter; isLoadin
 }
 
 export default function Command() {
-  const { devices, isLoading, error, revalidate } = useDevices();
+  const { devices, isLoading, error, isFailing, revalidate } = useDevices();
   const [filter, setFilter] = useState<Filter>("all");
 
-  // Only surrender the whole list when there is genuinely nothing to show.
+  // Surrender the list when there's nothing to show, OR when the failure is PERSISTENT.
   //
-  // useCachedPromise sets `error` on ANY failed fetch — including a single flaky 5s poll against a
-  // beta app talking to the Bluetooth daemon. An unconditional `if (error)` would unmount the list
-  // mid-use: the user's typed search vanishes, and five seconds later the next poll succeeds and
-  // the list silently comes back. `keepPreviousData` means we still hold the last good devices, so
-  // a transient failure should be invisible — the poll will simply try again.
-  if (error && devices.length === 0) {
+  // useCachedPromise sets `error` on ANY failed fetch — including one flaky 5s poll against a beta
+  // app talking to the Bluetooth daemon. An unconditional `if (error)` would unmount the list
+  // mid-use, losing the user's typed search, then silently restore it 5s later. So a transient
+  // failure stays invisible (`keepPreviousData` holds the last good devices).
+  //
+  // But `devices.length === 0` alone was not enough either: if AirBuddy QUITS after the list has
+  // loaded, every poll fails while stale rows sit there forever — showing connection and battery
+  // state that is no longer true, with no error and no recovery path. `isFailing` (2+ consecutive
+  // failures) distinguishes an outage from a hiccup.
+  if (error && (devices.length === 0 || isFailing)) {
     return (
       <List>
         <ErrorView error={error} onRetry={revalidate} />

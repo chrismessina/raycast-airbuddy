@@ -1,8 +1,8 @@
 import { Toast, showToast } from "@raycast/api";
-import { getDevices, toggleListeningMode } from "./airbuddy";
+import { type OutputDevice, getOutputDevice, toggleListeningMode } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { pollUntil } from "./poll";
-import { type ListeningMode, supportsListeningMode } from "./types";
+import type { ListeningMode } from "./types";
 
 const MODE_LABELS: Record<ListeningMode, string> = {
   normal: "Off",
@@ -15,33 +15,36 @@ export default async function Command() {
   const toast = await showToast({ style: Toast.Style.Animated, title: "Switching listening mode…" });
 
   try {
-    const before = await getDevices();
-    const headset = before.find((d) => supportsListeningMode(d) && d.connected);
+    // Target the OUTPUT ROUTE — the headset the user is actually listening to.
+    //
+    // An earlier version took `devices().find(d => supportsListeningMode(d) && d.connected)` — the
+    // FIRST connected mode-capable device in a collection with no documented ordering. With two
+    // headsets connected (say Beats and AirPods), that's a coin flip, and the command's own manifest
+    // promises "the current headset". Worse, AirBuddy picks its own target for the bare command, so
+    // the mode could flip on one headset while we polled the other and timed out reporting failure.
+    const output = await getOutputDevice();
 
-    if (!headset) {
+    if (!output || output.supportedListeningModes.length === 0) {
       failToast(toast, "No headset connected", "Connect a headset that supports listening modes.");
       return;
     }
 
-    const previous = headset.listeningMode;
-    const id: string = headset.id;
+    // Re-bind: TS does not carry the guard above into the closures below.
+    const target: OutputDevice = output;
+    const previous: ListeningMode = target.listeningMode;
 
-    // Pass the id: called bare, AirBuddy picks its own target, which may not be the headset we
-    // selected above — then we'd poll a device that never changes while the mode flips elsewhere.
-    await toggleListeningMode(id);
+    await toggleListeningMode(target.id);
 
     const after = await pollUntil(
-      () => getDevices(),
-      (devices) => {
-        const current = devices.find((d) => d.id === id);
-        return current !== undefined && current.listeningMode !== previous;
+      () => getOutputDevice(),
+      (d) => d !== null && d.listeningMode !== previous,
+      {
+        description: `${target.name} never switched modes`,
       },
-      { description: `${headset.name} never switched modes` },
     );
 
-    const now = after.find((d) => d.id === id)?.listeningMode;
     toast.style = Toast.Style.Success;
-    toast.title = now ? MODE_LABELS[now] : "Listening mode changed";
+    toast.title = after ? MODE_LABELS[after.listeningMode] : "Listening mode changed";
   } catch (error) {
     await showFailure("Couldn't switch the listening mode", error);
   }
