@@ -105,16 +105,21 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
   }
 
   async function handleSetMode(mode: ListeningMode) {
-    // Already on it? Say so rather than dispatching a no-op and claiming we "set" it. (The poll
-    // below would return immediately anyway, since its postcondition is already true — but a
-    // "Noise Cancellation" success toast for a command that did nothing is a small lie.)
-    if (device.listeningMode === mode) {
-      await showToast({ style: Toast.Style.Success, title: `Already ${LISTENING_MODE_LABELS[mode]}` });
-      return;
-    }
-
     const toast = await showToast({ style: Toast.Style.Animated, title: `Setting ${LISTENING_MODE_LABELS[mode]}…` });
+
     try {
+      // Already on it? Say so rather than dispatching a no-op and claiming we "set" it. Re-fetch
+      // rather than trusting `device.listeningMode`: that's the row's cached snapshot, up to 5s
+      // stale (the poll interval), so it can disagree with reality. Trusting it could report
+      // "Already Noise Cancellation" for a device AirBuddy had already switched to Transparency —
+      // skipping the real setListeningMode call the user asked for.
+      const current = await getDevices();
+      if (current.find((d) => d.id === device.id)?.listeningMode === mode) {
+        toast.style = Toast.Style.Success;
+        toast.title = `Already ${LISTENING_MODE_LABELS[mode]}`;
+        return;
+      }
+
       await setListeningMode(mode, device.id);
       await pollUntil(
         () => getDevices(),

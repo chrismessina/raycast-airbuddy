@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { AppState, BatteryAlertKind, BatteryPosition, Device, ListeningMode } from "./types";
+import type { AppState, BatteryAlertKind, BatteryPosition, Device, DeviceKind, ListeningMode } from "./types";
 
 const execFileAsync = promisify(execFile);
 
@@ -309,6 +309,7 @@ function run() {
   return JSON.stringify({
     id: d.id(),
     name: d.name(),
+    kind: d.kind(),
     connected: d.connected(),
     listeningMode: d.listeningMode(),
     supportedListeningModes: d.supportedListeningModes()
@@ -319,6 +320,12 @@ function run() {
 export interface OutputDevice {
   id: string;
   name: string;
+  // The current output route is any `device` — including THIS MAC when its built-in speakers are
+  // the active route. Without `kind`, disconnect-headset.ts treated any non-null output as a
+  // disconnectable headset, so it could call `disconnect device` on the user's own Mac and report
+  // "Disconnected <Mac name>" for a command literally named "Disconnect Headset". Callers MUST
+  // check `kind === "headset"` before treating this as a headset target.
+  kind: DeviceKind;
   connected: boolean;
   listeningMode: ListeningMode;
   supportedListeningModes: ListeningMode[];

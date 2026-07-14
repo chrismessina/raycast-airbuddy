@@ -18,11 +18,19 @@ export default async function Command() {
     //
     // The output route is the honest answer to "the headset", and `disconnect device` lets us name
     // it. No guessing, and the poll can't disagree with what AirBuddy did.
+    //
+    // BUT the output route is any `device` — including THIS MAC when its built-in speakers are the
+    // active route. Without the kind check, this command could disconnect the user's own laptop and
+    // report "Disconnected <Mac name>" for a command named "Disconnect Headset". Verified: the sdef's
+    // `current output device` has no headset restriction, and AirBuddy's own `device` class includes
+    // `kind: "host"`.
     const output = await getOutputDevice();
+    const outputIsHeadset = output?.kind === "headset";
 
-    // Fall back to any connected headset if there's no output route (e.g. connected but not routed).
-    const fallback = output ? null : (await getDevices()).find((d) => d.kind === "headset" && d.connected);
-    const target = output ?? fallback;
+    // Fall back to any connected headset if the output route isn't a headset (built-in speakers
+    // active, or connected but not routed).
+    const fallback = outputIsHeadset ? null : (await getDevices()).find((d) => d.kind === "headset" && d.connected);
+    const target = outputIsHeadset ? output : fallback;
 
     if (!target) {
       failToast(toast, "No headset connected", "There's nothing to disconnect.");
