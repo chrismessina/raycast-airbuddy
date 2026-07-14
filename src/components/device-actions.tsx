@@ -13,20 +13,15 @@ import { failToast, showFailure } from "../feedback";
 import { pollUntil } from "../poll";
 import { BatteryAlertsForm } from "../battery-alerts";
 import {
+  LISTENING_MODE_LABELS,
   type Device,
   type ListeningMode,
   type SpatialAudioMode,
   isAudioDevice,
   isConnectable,
+  listeningModeIcon,
   supportsListeningMode,
 } from "../types";
-
-const MODE_LABELS: Record<ListeningMode, string> = {
-  normal: "Off",
-  "noise cancellation": "Noise Cancellation",
-  transparency: "Transparency",
-  adaptive: "Adaptive",
-};
 
 const SPATIAL_LABELS: Record<SpatialAudioMode, string> = {
   off: "Spatial Audio Off",
@@ -116,16 +111,24 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
   }
 
   async function handleSetMode(mode: ListeningMode) {
-    const toast = await showToast({ style: Toast.Style.Animated, title: `Setting ${MODE_LABELS[mode]}…` });
+    // Already on it? Say so rather than dispatching a no-op and claiming we "set" it. (The poll
+    // below would return immediately anyway, since its postcondition is already true — but a
+    // "Noise Cancellation" success toast for a command that did nothing is a small lie.)
+    if (device.listeningMode === mode) {
+      await showToast({ style: Toast.Style.Success, title: `Already ${LISTENING_MODE_LABELS[mode]}` });
+      return;
+    }
+
+    const toast = await showToast({ style: Toast.Style.Animated, title: `Setting ${LISTENING_MODE_LABELS[mode]}…` });
     try {
       await setListeningMode(mode, device.id);
       await pollUntil(
         () => getDevices(),
         (devices) => devices.find((d) => d.id === device.id)?.listeningMode === mode,
-        { description: `${device.name} never switched to ${MODE_LABELS[mode]}` },
+        { description: `${device.name} never switched to ${LISTENING_MODE_LABELS[mode]}` },
       );
       toast.style = Toast.Style.Success;
-      toast.title = MODE_LABELS[mode];
+      toast.title = LISTENING_MODE_LABELS[mode];
       onRefresh();
     } catch (error) {
       await showFailure("Couldn't change listening mode", error);
@@ -151,12 +154,24 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
         {supportsListeningMode(device) && (
           <ActionPanel.Submenu
             title="Listening Mode"
-            icon={Icon.Headphones}
+            icon={listeningModeIcon(device.listeningMode)}
             shortcut={{ modifiers: ["cmd"], key: "l" }}
           >
-            {device.supportedListeningModes.map((mode) => (
-              <Action key={mode} title={MODE_LABELS[mode]} onAction={() => handleSetMode(mode)} />
-            ))}
+            {device.supportedListeningModes.map((mode) => {
+              const isCurrent = mode === device.listeningMode;
+              return (
+                <Action
+                  key={mode}
+                  // AirBuddy's own Noise Control menu checkmarks the active mode. Raycast's Action
+                  // has no `subtitle` and no checked state (verified — tsc rejects `subtitle`), so
+                  // the title is the only text channel. Without a marker the submenu can't tell you
+                  // what you're already on, and you'd have to close it to read the row badge.
+                  title={isCurrent ? `${LISTENING_MODE_LABELS[mode]} — Current` : LISTENING_MODE_LABELS[mode]}
+                  icon={listeningModeIcon(mode)}
+                  onAction={() => handleSetMode(mode)}
+                />
+              );
+            })}
           </ActionPanel.Submenu>
         )}
       </ActionPanel.Section>
