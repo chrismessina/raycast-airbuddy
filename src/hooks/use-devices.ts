@@ -1,5 +1,5 @@
 import { useCachedPromise } from "@raycast/utils";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getDevices } from "../airbuddy";
 import type { Device } from "../types";
 
@@ -10,6 +10,12 @@ const fetchDevices = (signal?: AbortSignal): Promise<Device[]> => getDevices(sig
 
 export function useDevices() {
   const abortable = useRef<AbortController>(null);
+
+  // `isLoading` from useCachedPromise goes true on EVERY fetch — including the 5s background poll.
+  // Feeding it straight to <List isLoading> pulses the loading bar every 5 seconds forever, which
+  // reads as a broken, perpetually-loading list. What the UI actually wants is "have we ever
+  // finished a fetch?" — the first load shows a spinner; every refresh after that is silent.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   // Tracks whether a fetch is actually outstanding.
   //
@@ -29,9 +35,11 @@ export function useDevices() {
     },
     onData: () => {
       inFlight.current = false;
+      setHasLoadedOnce(true);
     },
     onError: () => {
       inFlight.current = false;
+      setHasLoadedOnce(true);
     },
   });
 
@@ -46,5 +54,11 @@ export function useDevices() {
     return () => clearInterval(id);
   }, [revalidate]);
 
-  return { devices: data ?? [], isLoading, error, revalidate };
+  return {
+    devices: data ?? [],
+    /** True ONLY until the first fetch resolves. Background polls refresh silently. */
+    isLoading: isLoading && !hasLoadedOnce,
+    error,
+    revalidate,
+  };
 }

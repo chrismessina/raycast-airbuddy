@@ -1,4 +1,4 @@
-import { List } from "@raycast/api";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { useState } from "react";
 import { DeviceActions } from "./components/device-actions";
 import { DeviceListItem } from "./components/device-list-item";
@@ -8,10 +8,10 @@ import { OTHER_SECTION, type Device, sectionFor } from "./types";
 
 type Filter = "all" | "connected" | "headsets";
 
-// Fixed order — the list must not reshuffle as devices appear and disappear.
-// Fixed order — the list must not reshuffle as devices appear and disappear. OTHER_SECTION is last
-// and normally empty; it exists so a device kind AirBuddy adds later still renders instead of being
-// silently filtered out of the list (this array is what decides which sections are drawn at all).
+// Fixed order — the list must not reshuffle as devices appear and disappear (and they do: AirPods
+// leave the feed entirely when they go back in their case). OTHER_SECTION is last and normally
+// empty; it exists so a device kind AirBuddy adds later still renders, because this array is what
+// decides which sections get drawn at all.
 const SECTION_ORDER = [
   "AirPods",
   "Macs",
@@ -28,6 +28,63 @@ function applyFilter(devices: Device[], filter: Filter): Device[] {
       return devices.filter((d) => d.kind === "headset");
     case "all":
       return devices;
+    default:
+      return devices;
+  }
+}
+
+/**
+ * The empty state has to answer "why is this empty?", and the answer differs by filter.
+ *
+ * The trap: AirBuddy's API only ever reports LIVE devices, so "no headsets" almost always means
+ * "your AirPods are in their case" — not "you own no headsets". A generic "No results" would leave
+ * the user staring at an empty list wondering if the extension is broken. And when a *filter* is
+ * responsible for the emptiness, the user needs a way back out that doesn't require them to work
+ * out that the dropdown is the culprit.
+ */
+function EmptyState({ filter, isLoading, onShowAll }: { filter: Filter; isLoading: boolean; onShowAll: () => void }) {
+  if (isLoading) {
+    // No description: a spinner plus a sentence of explanation is noise for something that
+    // resolves in well under a second.
+    return <List.EmptyView icon={Icon.Bluetooth} title="Looking for Devices…" />;
+  }
+
+  const showAllAction = (
+    <ActionPanel>
+      <Action title="Show All Devices" icon={Icon.Devices} onAction={onShowAll} />
+    </ActionPanel>
+  );
+
+  switch (filter) {
+    case "headsets":
+      return (
+        <List.EmptyView
+          icon={Icon.Airpods}
+          title="No Headsets Nearby"
+          description="AirPods only appear when they're out of their case. Take them out, or switch back to All Devices."
+          actions={showAllAction}
+        />
+      );
+
+    case "connected":
+      return (
+        <List.EmptyView
+          icon={Icon.Plug}
+          title="Nothing Connected"
+          description="No device is currently connected to this Mac. Switch to All Devices to see what's nearby."
+          actions={showAllAction}
+        />
+      );
+
+    case "all":
+    default:
+      return (
+        <List.EmptyView
+          icon={Icon.Bluetooth}
+          title="No Devices Nearby"
+          description="AirBuddy only reports devices it can currently see. Turn a device on, or take your AirPods out of their case."
+        />
+      );
   }
 }
 
@@ -53,37 +110,36 @@ export default function Command() {
     else grouped.set(section, [device]);
   }
 
+  const sections = SECTION_ORDER.filter((title) => grouped.has(title));
+
   return (
     <List
+      // Only true until the FIRST fetch resolves. The 5s background poll refreshes silently —
+      // a loading bar that pulses every 5 seconds reads as a broken list.
       isLoading={isLoading}
       searchBarAccessory={
-        <List.Dropdown tooltip="Filter" value={filter} onChange={(v) => setFilter(v as Filter)}>
-          <List.Dropdown.Item title="All Devices" value="all" />
-          <List.Dropdown.Item title="Connected" value="connected" />
-          <List.Dropdown.Item title="Headsets" value="headsets" />
+        <List.Dropdown tooltip="Filter Devices" value={filter} onChange={(v) => setFilter(v as Filter)}>
+          <List.Dropdown.Item title="All Devices" value="all" icon={Icon.Devices} />
+          <List.Dropdown.Item title="Connected" value="connected" icon={Icon.Plug} />
+          <List.Dropdown.Item title="Headsets" value="headsets" icon={Icon.Airpods} />
         </List.Dropdown>
       }
     >
-      <List.EmptyView
-        title={isLoading ? "Loading Devices…" : "No Devices"}
-        description={
-          isLoading
-            ? undefined
-            : "AirBuddy only reports devices that are currently live. Turn a device on, or take your AirPods out of their case."
-        }
-      />
-
-      {SECTION_ORDER.filter((title) => grouped.has(title)).map((title) => (
-        <List.Section key={title} title={title} subtitle={String(grouped.get(title)?.length ?? 0)}>
-          {grouped.get(title)?.map((device) => (
-            <DeviceListItem
-              key={device.id}
-              device={device}
-              actions={<DeviceActions device={device} onRefresh={revalidate} />}
-            />
-          ))}
-        </List.Section>
-      ))}
+      {sections.length === 0 ? (
+        <EmptyState filter={filter} isLoading={isLoading} onShowAll={() => setFilter("all")} />
+      ) : (
+        sections.map((title) => (
+          <List.Section key={title} title={title} subtitle={String(grouped.get(title)?.length ?? 0)}>
+            {grouped.get(title)?.map((device) => (
+              <DeviceListItem
+                key={device.id}
+                device={device}
+                actions={<DeviceActions device={device} onRefresh={revalidate} />}
+              />
+            ))}
+          </List.Section>
+        ))
+      )}
     </List>
   );
 }
