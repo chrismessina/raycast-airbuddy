@@ -2,6 +2,7 @@ import { Action, ActionPanel, Icon, Keyboard, Toast, showToast } from "@raycast/
 import {
   connectDevice,
   disconnectDevice,
+  getAppState,
   getDevices,
   setListeningMode,
   showDeviceMenu,
@@ -11,13 +12,19 @@ import {
 import { showFailure } from "../feedback";
 import { pollUntil } from "../poll";
 import { BatteryAlertsForm } from "../battery-alerts";
-import { type Device, type ListeningMode, supportsListeningMode } from "../types";
+import { type Device, type ListeningMode, type SpatialAudioMode, supportsListeningMode } from "../types";
 
 const MODE_LABELS: Record<ListeningMode, string> = {
   normal: "Off",
   "noise cancellation": "Noise Cancellation",
   transparency: "Transparency",
   adaptive: "Adaptive",
+};
+
+const SPATIAL_LABELS: Record<SpatialAudioMode, string> = {
+  off: "Spatial Audio Off",
+  fixed: "Spatial Audio: Fixed",
+  "head tracked": "Spatial Audio: Head Tracked",
 };
 
 export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh: () => void }) {
@@ -63,6 +70,28 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
       onRefresh();
     } catch (error) {
       await showFailure(`Couldn't disconnect ${device.name}`, error);
+    }
+  }
+
+  async function handleToggleSpatialAudio() {
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Toggling Spatial Audio…" });
+
+    try {
+      // Fire-and-forget, like every AirBuddy action: the command returns on request-accept,
+      // not when the mode actually changes. Poll the real postcondition, and name the result.
+      const before = (await getAppState()).spatialAudioMode;
+
+      await toggleSpatialAudio();
+
+      const after = await pollUntil(
+        () => getAppState(),
+        (state) => state.spatialAudioMode !== before,
+      );
+
+      toast.style = Toast.Style.Success;
+      toast.title = SPATIAL_LABELS[after.spatialAudioMode];
+    } catch (error) {
+      await showFailure("Couldn't toggle Spatial Audio", error);
     }
   }
 
@@ -139,15 +168,10 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
         <Action
           title="Toggle Spatial Audio"
           icon={Icon.Speaker}
-          shortcut={{ modifiers: ["cmd", "shift"], key: "s" }}
-          onAction={async () => {
-            try {
-              await toggleSpatialAudio();
-              await showToast({ style: Toast.Style.Success, title: "Toggled Spatial Audio" });
-            } catch (error) {
-              await showFailure("Couldn't toggle Spatial Audio", error);
-            }
-          }}
+          // NOT cmd+shift+S — Raycast already binds that to Common.Duplicate, so it would
+          // hijack the user's muscle memory. cmd+shift+A is free in this panel.
+          shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+          onAction={handleToggleSpatialAudio}
         />
       </ActionPanel.Section>
 
@@ -158,7 +182,7 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
           shortcut={Keyboard.Shortcut.Common.Refresh}
           onAction={onRefresh}
         />
-        <Action.CopyToClipboard title="Copy Device Id" content={device.id} shortcut={Keyboard.Shortcut.Common.Copy} />
+        <Action.CopyToClipboard title="Copy Device ID" content={device.id} shortcut={Keyboard.Shortcut.Common.Copy} />
         <Action.CopyToClipboard
           title="Copy Device Name"
           content={device.name}
