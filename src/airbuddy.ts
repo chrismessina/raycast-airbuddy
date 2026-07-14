@@ -205,6 +205,19 @@ export async function connectFavorite(): Promise<void> {
   await runJXA<void>(CONNECT_FAVORITE);
 }
 
+const GET_FAVORITE = `
+function run() {
+  const app = Application("AirBuddyHelper");
+  const f = app.favoriteHeadset();
+  if (!f) return JSON.stringify(null);
+  return JSON.stringify({ id: f.id(), name: f.name() });
+}
+`;
+
+export async function getFavoriteHeadset(): Promise<{ id: string; name: string } | null> {
+  return runJXA<{ id: string; name: string } | null>(GET_FAVORITE);
+}
+
 const DISCONNECT_HEADSET = `function run() { Application("AirBuddyHelper").disconnectHeadset(); return ""; }`;
 export async function disconnectHeadset(): Promise<void> {
   await runJXA<void>(DISCONNECT_HEADSET);
