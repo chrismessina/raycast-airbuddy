@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Form, Icon, Toast, showToast, useNavigation } from "@raycast/api";
+import { Action, ActionPanel, Form, Icon, List, Toast, showToast, useNavigation } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { type OutputDevice, getOutputDevice, setListeningMode } from "./airbuddy";
 import { showFailure } from "./feedback";
@@ -19,6 +19,14 @@ import { LISTENING_MODE_LABELS, type ListeningMode, listeningModeIcon } from "./
  *
  * `Form.Dropdown.Item` supports `icon` (verified in the installed @raycast/api types), which is what
  * unlocks all three.
+ *
+ * Loading and empty states render a `List` + `List.EmptyView`, NOT a `Form.Description` inside an
+ * otherwise-empty Form. `Form.Description` is a left-aligned label/text row meant for inline help
+ * text *within* a filled-out form — used for "there's nothing to fill in" it renders as a mostly
+ * blank form with one stray line, which reads as broken rather than intentional. `List.EmptyView`
+ * (icon, centered title, description, actions) is the empty-state component this extension already
+ * uses everywhere else (list-devices.tsx, error-views.tsx) — matching it here keeps one visual
+ * language instead of two.
  */
 export default function Command() {
   const { pop } = useNavigation();
@@ -31,7 +39,7 @@ export default function Command() {
   async function handleSubmit(values: { mode: string }) {
     const mode = values.mode as ListeningMode;
 
-    if (!output) return; // Form has no target; nothing to submit. Guarded by isLoading below too.
+    if (!output) return; // No target to submit against — the Form only renders when output exists.
 
     // Already on it? Say so rather than dispatching a no-op and claiming we "set" it.
     if (output.listeningMode === mode) {
@@ -64,43 +72,44 @@ export default function Command() {
   const isLoading = output === undefined;
   const hasHeadset = output != null && output.supportedListeningModes.length > 0;
 
+  if (isLoading || !hasHeadset) {
+    return (
+      <List isLoading={isLoading}>
+        <List.EmptyView
+          icon={Icon.Bluetooth}
+          title={isLoading ? "Looking for a Headset…" : "No Headset Connected"}
+          description={isLoading ? undefined : "Connect a headset that supports listening modes, then try again."}
+        />
+      </List>
+    );
+  }
+
   return (
     <Form
-      isLoading={isLoading}
       actions={
-        hasHeadset ? (
-          <ActionPanel>
-            <Action.SubmitForm title="Set Listening Mode" icon={Icon.Checkmark} onSubmit={handleSubmit} />
-          </ActionPanel>
-        ) : undefined
+        <ActionPanel>
+          <Action.SubmitForm title="Set Listening Mode" icon={Icon.Checkmark} onSubmit={handleSubmit} />
+        </ActionPanel>
       }
     >
-      {!isLoading && !hasHeadset && (
-        <Form.Description
-          title="No Headset Connected"
-          text="Connect a headset that supports listening modes, then run this command again."
-        />
-      )}
-      {hasHeadset && (
-        <Form.Dropdown id="mode" title="Listening Mode" defaultValue={output.listeningMode}>
-          {output.supportedListeningModes.map((mode) => {
-            const isCurrent = mode === output.listeningMode;
-            return (
-              <Form.Dropdown.Item
-                key={mode}
-                value={mode}
-                // Form.Dropdown.Item has the same shape as the ActionPanel Action: `title` is a
-                // plain string with no separate marker slot, and the collapsed field / row highlight
-                // alone don't read as "this is the current mode" versus "this is what's focused" —
-                // especially before the user has interacted with the list. Same trailing-✓ fix as
-                // the submenu, for the same reason.
-                title={isCurrent ? `${LISTENING_MODE_LABELS[mode]} ✓` : LISTENING_MODE_LABELS[mode]}
-                icon={listeningModeIcon(mode)}
-              />
-            );
-          })}
-        </Form.Dropdown>
-      )}
+      <Form.Dropdown id="mode" title="Listening Mode" defaultValue={output.listeningMode}>
+        {output.supportedListeningModes.map((mode) => {
+          const isCurrent = mode === output.listeningMode;
+          return (
+            <Form.Dropdown.Item
+              key={mode}
+              value={mode}
+              // Form.Dropdown.Item has the same shape as the ActionPanel Action: `title` is a plain
+              // string with no separate marker slot, and the collapsed field / row highlight alone
+              // don't read as "this is the current mode" versus "this is what's focused" —
+              // especially before the user has interacted with the list. Same trailing-✓ fix as the
+              // submenu, for the same reason.
+              title={isCurrent ? `${LISTENING_MODE_LABELS[mode]} ✓` : LISTENING_MODE_LABELS[mode]}
+              icon={listeningModeIcon(mode)}
+            />
+          );
+        })}
+      </Form.Dropdown>
     </Form>
   );
 }
