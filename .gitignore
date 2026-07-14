@@ -15,6 +15,10 @@ compiled_raycast_rust
 
 # Notes for the AirBuddy developer — not part of the extension
 FEEDBACK.md
-/docs
+# docs/superpowers/ (local planning artifacts) is ignored; docs/solutions/ (ce-compound knowledge
+# base) is tracked and meant to be shared. A bare `/docs` exclude stops git from descending into the
+# directory at all, so a nested `!docs/solutions/` rule can't resurrect anything inside it — ignore
+# the specific unwanted subdirectory instead of the whole tree.
+docs/superpowers/
 .superpowers
 .claude
