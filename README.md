@@ -47,3 +47,17 @@ AirBuddy's own Devices settings.
 
 **Actions are asynchronous.** Connecting takes a moment. The extension waits for the device to actually
 connect before reporting success rather than claiming it immediately.
+
+## Credits and attribution
+
+**AirBuddy** is by [Gui Rambo](https://airbuddy.app). This extension is an unofficial companion to it and
+is not affiliated with or endorsed by AirBuddy. The extension icon is AirBuddy's own app icon, used to
+identify the app this extension controls.
+
+**Device icons are [SF Symbols](https://developer.apple.com/sf-symbols/)**, provided by Apple and used
+under the [SF Symbols license](https://developer.apple.com/fonts/), to depict the Apple hardware each row
+represents — an AirPods glyph for AirPods, a MacBook for a Mac, an Apple Watch for a Watch. They are
+rendered at a fixed size and tinted for light and dark mode by
+[`scripts/render-icons.swift`](scripts/render-icons.swift); the symbol artwork itself is not modified,
+and no symbol is used in a logo, wordmark, or trademark. Apple's own frameworks use these same symbols
+for these same devices, and AirBuddy draws its device glyphs with SF Symbols too.

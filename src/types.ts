@@ -72,6 +72,18 @@ export function supportsListeningMode(device: Device): boolean {
 }
 
 /**
+ * Whether connect/disconnect means anything for this device.
+ *
+ * `kind: "host"` is THIS Mac — the machine the extension is running on. AirBuddy reports it with
+ * `connected: false`, which is meaningless for the host (you cannot Bluetooth-connect to the
+ * computer you are sitting at), and a naive read of that flag offers a "Connect" action on the
+ * user's own laptop. Verified: BunnySilicon II, kind "host", connected false.
+ */
+export function isConnectable(device: Device): boolean {
+  return device.kind !== "host";
+}
+
+/**
  * Whether this device can carry an audio route — i.e. whether audio actions (Spatial Audio) make
  * any sense on it.
  *

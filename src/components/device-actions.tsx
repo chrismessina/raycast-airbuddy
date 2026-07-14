@@ -12,7 +12,14 @@ import {
 import { showFailure } from "../feedback";
 import { pollUntil } from "../poll";
 import { BatteryAlertsForm } from "../battery-alerts";
-import { type Device, type ListeningMode, type SpatialAudioMode, isAudioDevice, supportsListeningMode } from "../types";
+import {
+  type Device,
+  type ListeningMode,
+  type SpatialAudioMode,
+  isAudioDevice,
+  isConnectable,
+  supportsListeningMode,
+} from "../types";
 
 const MODE_LABELS: Record<ListeningMode, string> = {
   normal: "Off",
@@ -130,11 +137,17 @@ export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh
   return (
     <ActionPanel>
       <ActionPanel.Section>
-        {device.connected ? (
-          <Action title="Disconnect" icon={Icon.Plug} onAction={handleDisconnect} />
-        ) : (
-          <Action title="Connect" icon={Icon.Plug} onAction={handleConnect} />
-        )}
+        {/*
+          Not on the host. `kind: "host"` is THIS Mac, and AirBuddy reports it as connected: false —
+          a meaningless value for the machine you're sitting at. Reading that flag naively put a
+          "Connect" action on the user's own laptop, as the primary ↵ action no less.
+        */}
+        {isConnectable(device) &&
+          (device.connected ? (
+            <Action title="Disconnect" icon={Icon.Plug} onAction={handleDisconnect} />
+          ) : (
+            <Action title="Connect" icon={Icon.Plug} onAction={handleConnect} />
+          ))}
 
         {/* Rendered ONLY for devices that actually support listening modes. */}
         {supportsListeningMode(device) && (
