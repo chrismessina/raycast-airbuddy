@@ -106,13 +106,39 @@ export interface OutputDevice {
   // the active route. Without `kind`, disconnect-headset.ts treated any non-null output as a
   // disconnectable headset, so it could call `disconnect device` on the user's own Mac and report
   // "Disconnected <Mac name>" for a command literally named "Disconnect Headset". Callers MUST
-  // check `kind === "headset"` before treating this as a headset target.
+  // check `kind === "headset"` before treating this as a headset target — or, more precisely as of
+  // AirBuddy 911 (see Update note below), `supportedActions.includes("disconnect")`.
   kind: DeviceKind;
   connected: boolean;
-  listeningMode: ListeningMode;
+  listeningMode: ListeningMode | null;
   supportedListeningModes: ListeningMode[];
+  supportedActions: DeviceAction[];
 }
 ```
+
+> **Updated 2026-07-17 (AirBuddy 911 migration).** `disconnect-headset.ts`'s gate changed from
+> `output?.kind === "headset"` to `output?.supportedActions.includes("disconnect") ?? false` —
+> `supportedActions` is AirBuddy 911's new, state-aware, per-device capability list (live-verified: a
+> connected headset gains `"disconnect"` that a disconnected one lacks, which `kind` alone could never
+> express). `device-actions.tsx`'s equivalent guard changed the same way (`isConnectable`/
+> `isDisconnectable` in `src/types.ts`, now `supportedActions.includes("connect"/"disconnect")` instead
+> of `kind === "headset"`) — `kind`-based capability checks are superseded across the codebase, not
+> just at this one call site. `listeningMode` is now `ListeningMode | null` (911 fixed the poisoning
+> bug this doc's sibling problem-class touches; see `docs/solutions/` history via `git log` for prior
+> state if needed). The core PATTERN this doc documents — prefer a singular accessor
+> (`getOutputDevice()`) over guessing from the unordered `devices()` array, and pass explicit targets
+> rather than relying on a command's opaque bare-form resolution — is unchanged and still fully
+> applies; only the capability-check mechanism changed.
+>
+> Separately, AirBuddy 911's sdef now declares an `operation result` return type (`outcome`, `applied`,
+> **`target id`**, `reason`) for `connect device`/`disconnect device`/`set listening mode`/`toggle
+> listening mode` — `target id` would be a second line of defense against exactly this doc's failure
+> class (client and API resolving different targets), by telling the caller after the fact what
+> AirBuddy actually acted on. **Not usable from this codebase's transport**, however: live-verified
+> (2026-07-17) that `osascript -l JavaScript` (JXA) returns `undefined` for all of these commands
+> despite the sdef's declared return type — a known JXA limitation bridging complex AppleScript record
+> types from third-party dictionaries. `pollUntil()` and the pre-resolved-target approach documented
+> below remain necessary; they were not obsoleted by this API change.
 
 **`src/toggle-listening-mode.ts:18-29`** now reads and polls the output-route device instead of guessing
 from `devices()`, and passes the id explicitly to `toggleListeningMode()` rather than calling it bare:
@@ -122,7 +148,7 @@ from `devices()`, and passes the id explicitly to `toggleListeningMode()` rather
 const output = await getOutputDevice();
 ...
 const target: OutputDevice = output;
-const previous: ListeningMode = target.listeningMode;
+const previous: ListeningMode | null = target.listeningMode; // nullable as of AirBuddy 911
 await toggleListeningMode(target.id);
 ```
 
@@ -138,9 +164,9 @@ resolution from the equation.
 explicit-target `disconnect device <id>`, and gates target selection on `kind === "headset"`:
 
 ```ts
-// src/disconnect-headset.ts:27-33
+// src/disconnect-headset.ts:27-33 (as of AirBuddy 911; kind === "headset" superseded, see Update note above)
 const output = await getOutputDevice();
-const outputIsHeadset = output?.kind === "headset";
+const outputIsHeadset = output?.supportedActions.includes("disconnect") ?? false;
 
 // Fall back to any connected headset if the output route isn't a headset (built-in speakers
 // active, or connected but not routed).

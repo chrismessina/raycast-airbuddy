@@ -7,10 +7,19 @@ ce-compound-refresh process learnings; direct edits are fine. Glossary only, not
 ## Devices
 
 ### Device
-An entry in AirBuddy's live device collection — a Bluetooth or wired accessory AirBuddy currently sees.
-Kinds are headset, mobile, accessory, host, or Mac. The collection is **unordered**: array position
+An entry in AirBuddy's device collection — a Bluetooth or wired accessory AirBuddy knows about. Kinds
+are headset, mobile, accessory, host, or Mac. The collection returns AirBuddy's full known roster
+(devices it has ever paired with), not only devices it currently sees — a `nearby` flag distinguishes
+live-present devices from known-but-absent ones. The collection is **unordered**: array position
 carries no meaning about which device is currently active or most relevant. This distinguishes a Device
 from the Output Route, which is a singular, unambiguous pointer rather than a member of an unordered set.
+
+### Supported Actions
+A per-device, state-aware list of the actions that currently apply to a specific device — the
+authoritative alternative to inferring capability from `kind` alone. Two devices of the same kind can
+have different Supported Actions depending on live state (a connected headset gains actions a
+disconnected one lacks). Use this, not `kind`, to decide whether an action like connect, disconnect, or
+show device menu should be offered right now.
 
 ### Output Route
 The one device currently serving as the active audio output — a singular property, not a member of the
