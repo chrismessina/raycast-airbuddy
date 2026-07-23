@@ -13,7 +13,19 @@ root_cause: wrong_api
 resolution_type: code_fix
 severity: high
 related_components: [toggle-listening-mode.ts, set-listening-mode.tsx, disconnect-headset.ts, device-actions.tsx]
-tags: [jxa, applescript, osascript, raycast-extension, race-condition, false-negative, output-route, target-selection, unordered-collection, polling]
+tags:
+  [
+    jxa,
+    applescript,
+    osascript,
+    raycast-extension,
+    race-condition,
+    false-negative,
+    output-route,
+    target-selection,
+    unordered-collection,
+    polling,
+  ]
 ---
 
 # Resolve headset target ambiguity by targeting AirBuddy's output route instead of array position
@@ -26,7 +38,7 @@ dispatching an AppleScript command to AirBuddy via `osascript -l JavaScript`. Th
 target with `devices().find(d => supportsListeningMode(d) && d.connected)` — the first match in the
 array returned by AirBuddy's `devices` AppleScript collection, which has no documented ordering
 guarantee. Several of AirBuddy's own commands (`toggle listening mode`, `disconnect headset`) also
-accept an *optional* device parameter — called bare, AirBuddy resolves its own target internally and
+accept an _optional_ device parameter — called bare, AirBuddy resolves its own target internally and
 opaquely. With two headsets connected simultaneously, the extension's guess and AirBuddy's internal
 guess could disagree: AirBuddy changes device B while the extension polls device A, the poll times out,
 and the UI reports a false failure for a command that actually succeeded.
@@ -37,7 +49,7 @@ and the UI reports a false failure for a command that actually succeeded.
   reports "never switched modes" even though AirBuddy did switch a headset's mode — just not the one the
   code polled.
 - Disconnect Headset either polled for "zero headsets remain" (over-broad — spins to timeout when
-  AirBuddy only disconnects one of two) or, in a follow-up attempt, polled the *wrong specific* headset
+  AirBuddy only disconnects one of two) or, in a follow-up attempt, polled the _wrong specific_ headset
   because the id it picked from `devices()` disagreed with the one AirBuddy actually acted on.
 - A later fix pass, before it added a `kind` check, could pick the user's own Mac (`kind: "host"`) as the
   disconnect target when the Mac's built-in speakers were the active output route, and would have
@@ -53,7 +65,7 @@ and the UI reports a false failure for a command that actually succeeded.
 
 2. **Fix the postcondition, not the target (`disconnect-headset.ts`, commit `e3a4ec2` → `71c24cd`).**
    The first fix pass corrected the over-broad "poll until zero headsets are connected" (`c1b7af1`) —
-   which spun to timeout whenever a second headset stayed connected — by polling a *specific* headset id
+   which spun to timeout whenever a second headset stayed connected — by polling a _specific_ headset id
    (`71c24cd`: `devices.find((d) => d.id === targetId)?.connected !== true`). This closed the "zero
    headsets" over-broad bug but introduced a new one: the specific id was still just `devices().find(...)`'s
    guess, no more likely to be the id AirBuddy's own bare `disconnect headset` command chose to act on.
@@ -61,7 +73,7 @@ and the UI reports a false failure for a command that actually succeeded.
 3. **`getOutputDevice()` without a `kind` field (commit `13d9c82`).** The real fix — reading AirBuddy's
    `current output device` property instead of guessing from the array — was introduced in `13d9c82`, but
    the initial `OutputDevice` interface carried only `{ id, name, connected, listeningMode,
-   supportedListeningModes }`. Since `current output device` can resolve to *any* device including the
+supportedListeningModes }`. Since `current output device` can resolve to _any_ device including the
    user's own Mac when built-in speakers are the active route, `disconnect-headset.ts` treated any
    non-null output as a disconnectable headset. An independent second-opinion review (Codex, commit
    `dbd27ce`) found the resulting failure scenario: Mac speakers active as output → Disconnect Headset
@@ -71,7 +83,7 @@ and the UI reports a false failure for a command that actually succeeded.
 ## Solution
 
 Added `getOutputDevice()` to `src/airbuddy.ts:334-336`, backed by a JXA script (`src/airbuddy.ts:303-318`)
-that calls AirBuddy's `current output device` AppleScript property — the device the user is *actually*
+that calls AirBuddy's `current output device` AppleScript property — the device the user is _actually_
 listening to right now, not a guess from an unordered collection:
 
 ```ts
@@ -130,15 +142,32 @@ export interface OutputDevice {
 > rather than relying on a command's opaque bare-form resolution — is unchanged and still fully
 > applies; only the capability-check mechanism changed.
 >
-> Separately, AirBuddy 911's sdef now declares an `operation result` return type (`outcome`, `applied`,
-> **`target id`**, `reason`) for `connect device`/`disconnect device`/`set listening mode`/`toggle
-> listening mode` — `target id` would be a second line of defense against exactly this doc's failure
-> class (client and API resolving different targets), by telling the caller after the fact what
-> AirBuddy actually acted on. **Not usable from this codebase's transport**, however: live-verified
-> (2026-07-17) that `osascript -l JavaScript` (JXA) returns `undefined` for all of these commands
-> despite the sdef's declared return type — a known JXA limitation bridging complex AppleScript record
-> types from third-party dictionaries. `pollUntil()` and the pre-resolved-target approach documented
-> below remain necessary; they were not obsoleted by this API change.
+> **Superseded 2026-07-22 (AirBuddy 912).** The paragraph below was correct for build 911 but is now
+> WRONG — do not trust it for current AirBuddy versions. AirBuddy 912's sdef declares the same
+> `operation result` return type (`outcome`, `applied`, **`target id`**, `reason`, `connected`,
+> `listening mode`) for `connect device`/`disconnect device`/`set/toggle listening mode`/`connect to
+nearest headset`/`connect to favorite headset`/`disconnect headset`, and it IS now retrievable via
+> this codebase's JXA transport — live-verified 2026-07-22 against real hardware:
+> `app.connectDevice(id)` returned `{"outcome":"rejected","reason":"The device is already
+connected.","applied":false,"connected":null,"listeningMode":null,"targetId":"<id>"}`, a real
+> parsed object, not `undefined`. Whatever changed between builds — a JXA bridging fix on AirBuddy's
+> side, most likely — reversed the specific limitation this doc previously documented. The codebase
+> now wires this up: see `src/poll.ts`'s `assertApplied()`/`OperationRejectedError`, used at every
+> connect/disconnect/listening-mode call site to fail fast on `rejected`/`failed`/`cancelled` with
+> AirBuddy's own `reason` string, instead of always polling to a timeout. **`pollUntil()` was NOT
+> removed** — `operation result`'s `applied: true` reflects the completed Bluetooth/audio-level
+> operation, not necessarily the UI-visible settle state this codebase polls for, so most call sites
+> still poll after a passing `assertApplied()` check. This only removes the guaranteed-wasted wait on
+> outcomes AirBuddy already reported as not-applicable. The pre-resolved-target pattern this doc
+> documents (`getOutputDevice()` over guessing from `devices()`) remains necessary and unchanged —
+> `operation result` tells you what AirBuddy did AFTER the fact, it doesn't replace choosing the
+> right target BEFORE the call.
+>
+> Original (911-era, now superseded) note, kept for history: AirBuddy 911's sdef declared the same
+> `operation result` type, but live-verified (2026-07-17) that JXA returned `undefined` for all of
+> these commands despite the declared return type — attributed at the time to a JXA limitation
+> bridging complex AppleScript record types from third-party dictionaries. That limitation no longer
+> reproduces on build 912.
 
 **`src/toggle-listening-mode.ts:18-29`** now reads and polls the output-route device instead of guessing
 from `devices()`, and passes the id explicitly to `toggleListeningMode()` rather than calling it bare:
@@ -180,7 +209,7 @@ still present but no longer used by this command), and polls that specific id
 (`src/disconnect-headset.ts:48-51`) — so the poll cannot disagree with what AirBuddy actually did,
 because the command told AirBuddy exactly what to do.
 
-**`src/components/device-actions.tsx`** was *not* changed to use `getOutputDevice()` for its per-row
+**`src/components/device-actions.tsx`** was _not_ changed to use `getOutputDevice()` for its per-row
 `handleSetMode` (`device-actions.tsx:107-135`) — that handler correctly targets `device.id`, the
 specific row the user clicked, which is the right per-row semantics and not the ambiguous case.
 `handleToggleSpatialAudio` (`device-actions.tsx:74-105`) also passes `device.id` explicitly to
@@ -194,7 +223,7 @@ The output route is the one AirBuddy-side concept that unambiguously answers "wh
 in use" — it is not an array with unclear ordering, it is a singular "the device currently serving as
 output" property (`current output device` in the sdef, exposed as `currentOutputDevice()` in JXA —
 `src/airbuddy.ts:305-307`). Preferring `disconnect device <id>` / passing an explicit device id to
-`toggleListeningMode`/`setListeningMode` over the bare/ambiguous forms removes a *second* source of
+`toggleListeningMode`/`setListeningMode` over the bare/ambiguous forms removes a _second_ source of
 guessing — AirBuddy's own internal target resolution — not just the client's. Once both the extension's
 target selection and the command's target selection agree (because the command was told explicitly), the
 poll's postcondition can no longer disagree with what AirBuddy actually did.
@@ -208,7 +237,7 @@ poll's postcondition can no longer disagree with what AirBuddy actually did.
   `src/airbuddy.ts:290-301` for the reasoning captured in-repo.
 - **When a command accepts an optional target parameter, treat "called bare" as the API doing its own
   internal target resolution, opaquely.** If your code separately guesses a target and polls for a
-  change on *its* guess, the two guesses can disagree, producing a false failure on postcondition-check
+  change on _its_ guess, the two guesses can disagree, producing a false failure on postcondition-check
   even when the real action succeeded. Prefer passing the target explicitly whenever the API supports
   it — this closes off the API's independent guess entirely, and is strictly safer than trying to guess
   the API's guess correctly. See the doc comments at `src/airbuddy.ts:359-364` (`toggleListeningMode`)
