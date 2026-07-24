@@ -1,6 +1,7 @@
 # AirBuddy AppleScript Examples
 
-> Upstream reference from AirBuddy's author (Gui Rambo), current as of AirBuddyHelper build 912.
+> Upstream reference from AirBuddy's author (Gui Rambo), originally current as of AirBuddyHelper
+> build 912; see the "[Corrected for build 913]" note below for the one thing that changed since.
 > This is the general AppleScript/JXA dictionary reference for scripting AirBuddy — it is not
 > specific to this extension. For where these calls are actually used in this codebase, see
 > [`src/airbuddy.ts`](../src/airbuddy.ts), which wraps every command as a static JXA script run via
@@ -725,10 +726,16 @@ They return after the UI action is dispatched; they do not return an `operation 
 tell application "AirBuddyHelper"
     toggle microphone input
     toggle audio input lock
-    toggle desktop widgets
+    toggle desktop widgets floating
     show Magic Handoff picker
 end tell
 ```
+
+> **[Corrected for build 913]** `toggle desktop widgets` was renamed to `toggle desktop widgets
+floating` — per Gui, "to make it consistent with what's actually being controlled and with the
+> new readable property" (`desktop widgets floating`, on `application`). Build 913 also added a
+> readable `audio input lock enabled` property. Both are now pollable postconditions in this
+> extension; see `src/airbuddy.ts`'s `AppState`.
 
 `toggle microphone input` requires a currently routed headset and otherwise returns a
 scripting error. `show Magic Handoff picker` only presents the picker; it does not
