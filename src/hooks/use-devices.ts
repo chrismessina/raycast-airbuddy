@@ -1,5 +1,5 @@
-import { useCachedPromise } from "@raycast/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useCachedPromise } from "@raycast/utils";
 import { getDevices, getLiveDevices } from "../airbuddy";
 import type { Device } from "../types";
 

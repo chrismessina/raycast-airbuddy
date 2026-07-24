@@ -1,4 +1,4 @@
-import { Toast, showToast } from "@raycast/api";
+import { showToast, Toast } from "@raycast/api";
 import { getAppState, toggleAudioInputLock } from "./airbuddy";
 import { showFailure } from "./feedback";
 import { pollUntil } from "./poll";

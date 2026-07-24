@@ -1,5 +1,5 @@
-import { Toast, showToast } from "@raycast/api";
-import { type FavoriteHeadset, connectFavorite, getFavoriteHeadset } from "./airbuddy";
+import { showToast, Toast } from "@raycast/api";
+import { connectFavorite, getFavoriteHeadset, type FavoriteHeadset } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { assertApplied, pollUntil } from "./poll";
 

@@ -1,10 +1,10 @@
-import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { useState } from "react";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { DeviceActions } from "./components/device-actions";
 import { DeviceListItem } from "./components/device-list-item";
 import { ErrorView } from "./components/error-views";
 import { useDevices } from "./hooks/use-devices";
-import { OTHER_SECTION, type Device, sectionFor } from "./types";
+import { OTHER_SECTION, sectionFor, type Device } from "./types";
 
 type Filter = "all" | "connected" | "headsets" | "known";
 

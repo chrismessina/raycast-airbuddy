@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Icon, Keyboard, Toast, closeMainWindow, showToast } from "@raycast/api";
+import { Action, ActionPanel, closeMainWindow, Icon, Keyboard, showToast, Toast } from "@raycast/api";
 import {
   connectDevice,
   disconnectDevice,
@@ -11,19 +11,19 @@ import {
   showStatusWindow,
   toggleSpatialAudio,
 } from "../airbuddy";
+import { BatteryAlertsForm } from "../battery-alerts";
 import { failToast, showFailure } from "../feedback";
 import { assertApplied, pollUntil } from "../poll";
-import { BatteryAlertsForm } from "../battery-alerts";
 import {
-  LISTENING_MODE_LABELS,
-  SPATIAL_AUDIO_LABELS,
-  type Device,
-  type ListeningMode,
   isAudioDevice,
   isConnectable,
   isDisconnectable,
+  LISTENING_MODE_LABELS,
   listeningModeIcon,
+  SPATIAL_AUDIO_LABELS,
   supportsListeningMode,
+  type Device,
+  type ListeningMode,
 } from "../types";
 
 export function DeviceActions({ device, onRefresh }: { device: Device; onRefresh: () => void }) {

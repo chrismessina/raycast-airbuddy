@@ -1,4 +1,4 @@
-import { Toast, showToast } from "@raycast/api";
+import { showToast, Toast } from "@raycast/api";
 import { cancelDeviceConnection } from "./airbuddy";
 import { showFailure } from "./feedback";
 

@@ -1,16 +1,16 @@
-import { Color, Icon, List } from "@raycast/api";
 import type { ReactNode } from "react";
+import { Color, Icon, List } from "@raycast/api";
 import {
-  LISTENING_MODE_LABELS,
-  type Device,
   batteryColor,
   batteryIcon,
   budsDiverge,
   caseBattery,
   iconFor,
+  LISTENING_MODE_LABELS,
   listeningModeIcon,
   primaryBattery,
   supportsListeningMode,
+  type Device,
 } from "../types";
 
 /**

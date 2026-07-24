@@ -1,5 +1,5 @@
-import { Toast, showToast } from "@raycast/api";
-import { type OutputDevice, getOutputDevice, toggleListeningMode } from "./airbuddy";
+import { showToast, Toast } from "@raycast/api";
+import { getOutputDevice, toggleListeningMode, type OutputDevice } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { assertApplied, pollUntil } from "./poll";
 import { LISTENING_MODE_LABELS, type ListeningMode } from "./types";

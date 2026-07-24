@@ -1,16 +1,16 @@
+import { Fragment, useState } from "react";
 import {
   Action,
   ActionPanel,
   Alert,
+  confirmAlert,
   Form,
   Icon,
   Keyboard,
-  Toast,
-  confirmAlert,
   showToast,
+  Toast,
   useNavigation,
 } from "@raycast/api";
-import { Fragment, useState } from "react";
 import { deleteBatteryAlerts, setBatteryAlert } from "./airbuddy";
 import { showFailure } from "./feedback";
 import type { BatteryAlert, Device } from "./types";

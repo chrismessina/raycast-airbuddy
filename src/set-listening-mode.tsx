@@ -1,10 +1,10 @@
-import { Action, ActionPanel, Form, Icon, List, Toast, showToast, useNavigation } from "@raycast/api";
 import { useEffect, useState } from "react";
-import { type OutputDevice, getOutputDevice, setListeningMode } from "./airbuddy";
+import { Action, ActionPanel, Form, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
+import { getOutputDevice, setListeningMode, type OutputDevice } from "./airbuddy";
 import { ErrorView } from "./components/error-views";
 import { showFailure } from "./feedback";
 import { assertApplied, pollUntil } from "./poll";
-import { LISTENING_MODE_LABELS, type ListeningMode, listeningModeIcon } from "./types";
+import { LISTENING_MODE_LABELS, listeningModeIcon, type ListeningMode } from "./types";
 
 /**
  * A VIEW command, not the manifest-declared dropdown argument it started as.

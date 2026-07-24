@@ -1,4 +1,4 @@
-import { Toast, showToast } from "@raycast/api";
+import { showToast, Toast } from "@raycast/api";
 import { disconnectDevice, getDevices, getOutputDevice } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { assertApplied, pollUntil } from "./poll";

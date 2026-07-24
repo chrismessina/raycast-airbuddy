@@ -1,5 +1,5 @@
-import { Toast, showToast } from "@raycast/api";
-import { type HeadsetHandle, connectNearest, getNearestHeadset } from "./airbuddy";
+import { showToast, Toast } from "@raycast/api";
+import { connectNearest, getNearestHeadset, type HeadsetHandle } from "./airbuddy";
 import { failToast, showFailure } from "./feedback";
 import { assertApplied, pollUntil } from "./poll";
 

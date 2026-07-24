@@ -1,4 +1,4 @@
-import { Clipboard, Toast, showToast } from "@raycast/api";
+import { Clipboard, showToast, Toast } from "@raycast/api";
 
 export function describeError(error: unknown): string {
   if (error instanceof Error) return error.message;
