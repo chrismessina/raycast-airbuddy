@@ -1,5 +1,17 @@
 # AirBuddy for Raycast
 
+<div align="center">
+  <a href="https://github.com/chrismessina">
+    <img src="https://img.shields.io/github/followers/chrismessina?label=Follow%20chrismessina&style=social" alt="Follow @chrismessina">
+  </a>
+  <a href="https://github.com/chrismessina/raycast-airbuddy/stargazers">
+    <img src="https://img.shields.io/github/stars/chrismessina/raycast-airbuddy?style=social" alt="Stars">
+  </a>
+  <a href="https://www.raycast.com/chrismessina/airbuddy">
+    <img src="https://img.shields.io/badge/Raycast-Store-red.svg" alt="AirBuddy on Raycast store.">
+  </a>
+</div>
+
 Control [AirBuddy](https://airbuddy.app) from Raycast — see live devices and batteries, connect and
 disconnect, switch listening and Spatial Audio modes, and manage battery alerts.
 
@@ -12,7 +24,7 @@ default, and the extension will show you which one is missing.
 
 ### 1. Enable scripting in AirBuddy
 
-AirBuddy → Settings → Advanced → Security → turn on **"Enable Apple Script for automation."**
+AirBuddy → Settings → General → Security → turn on **"Enable Apple Script for automation."**
 
 ### 2. Allow Raycast to control AirBuddy
 
