@@ -93,9 +93,12 @@ Everything else in the file is a static script constant plus a typed wrapper.
 than a generic 10s timeout. On `applied`, still `pollUntil()` the postcondition, and always pass a
 `description`, or six different failures produce the same unusable string.
 
-**Feedback** (`src/feedback.ts`): `showFailure()` in a `catch`, `failToast()` to convert an
-already-showing animated toast in a guard branch. Both attach Copy Error; that is why they exist.
-Do not hand-roll `toast.style = Toast.Style.Failure`.
+**Feedback** (`src/feedback.ts`): two local wrappers, picked by whether a toast is already on
+screen. `showFailure(title, error)` fires a **new** failure toast — use it in a `catch`, where
+there is a thrown error to report. `failToast(toast, title, message)` **converts an
+already-showing** animated toast — use it in a pre-flight guard branch ("no headset connected"),
+where nothing threw. Route every failure through one of them rather than setting
+`toast.style` by hand.
 
 **Errors as UI** (`src/components/error-views.tsx`): the four transport error classes each map to
 their own recovery view. Any view command that reads AirBuddy must route errors here rather than
@@ -104,22 +107,32 @@ one line and put steps in the actions.
 
 ## The command surface
 
-Thirteen manifest commands, but only four shapes. Read `package.json` for the list; what matters is
-which group a change belongs to:
+`package.json` `commands` is the authority for the current list. What matters is which group a
+change belongs to — the action commands fall into four shapes:
 
-- **Output-route targeted** — `toggle-listening-mode`, `set-listening-mode`, `disconnect-headset`,
-  `toggle-microphone-input`. Resolve via `getOutputDevice()`, guard, act by id, poll that id.
+- **Output-route targeted** — `toggle-listening-mode`, `set-listening-mode`, `disconnect-headset`.
+  Resolve via `getOutputDevice()`, guard, act by id, poll that id.
 - **Handle targeted** — `connect-nearest-headset`, `connect-favorite-headset`. Resolve the handle
   first (it works when the device is absent from `devices()`), short-circuit if already connected,
   then poll the *handle*.
 - **Application-level with a readable counterpart** — `toggle-spatial-audio`,
   `toggle-audio-input-lock`, `toggle-desktop-widgets-floating`. Read `getAppState()` before, toggle,
   poll `getAppState()` for the flip, and name the resulting state in the toast.
+  `toggle-microphone-input` belongs here too, with one difference: **it takes no target parameter**
+  — `toggleMicrophoneInput()` in `src/airbuddy.ts` is a bare call that acts on the current input
+  route, the same shape as Spatial Audio. Do not pass it an id; there is none to pass. It reads the
+  output route only to guard ("rejected when no routed headset is available") and to poll its
+  postcondition, which is that route's `audioState`, not `getAppState()`.
 - **Fire-and-forget UI dispatch** — `show-dashboard`, `show-magic-handoff-picker`,
-  `cancel-device-connection`. No postcondition exists to poll. `closeMainWindow()` first, or
-  AirBuddy's window opens behind Raycast. These report dispatch, not outcome — keep the copy honest.
+  `cancel-device-connection`. No postcondition exists to poll; these report dispatch, not outcome —
+  keep the copy honest. `show-dashboard` and `show-magic-handoff-picker` call `closeMainWindow()`
+  first because they present AirBuddy UI, which would otherwise open behind Raycast.
+  `cancel-device-connection` does not: it dispatches the cancellation without opening AirBuddy UI.
 
-The one view command, `list-devices`, composes `useDevices` → `DeviceListItem` → `DeviceActions`.
+Two commands are declared `mode: "view"`. `list-devices` is the browse surface, composing
+`useDevices` → `DeviceListItem` → `DeviceActions`. `set-listening-mode` is a view only because it
+presents a live picker before acting — its behaviour is output-route targeted, per the group above.
+
 `src/battery-alerts.tsx` is **not** a manifest command; it is a form pushed from the device action
 panel. Its "Reset Alerts to Defaults" calls `delete battery alerts`, which was verified to reset
 records to their disabled defaults rather than remove them — the reason it is exposed at all.
@@ -133,7 +146,6 @@ helper mid-restart, none of which a unit test reproduces.
 
 ## Fleet conventions
 
-House style shared across all of Chris's Raycast extensions — Copy Error on every failure toast,
-`Keyboard.Shortcut.Common`, no `any`, generated `Preferences`/`Arguments` types — lives in
-`/Users/messina/Developer/GitHub/chrismessina/raycast-extension-workflows/plugins/raycast-extensions/reference/house-style.md`. It is not
-restated here.
+House style shared across all of Chris's Raycast extensions lives in
+`/Users/messina/Developer/GitHub/chrismessina/raycast-extension-workflows/plugins/raycast-extensions/reference/house-style.md`.
+Read it there; it is deliberately not restated in this file.
