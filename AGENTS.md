@@ -135,5 +135,5 @@ helper mid-restart, none of which a unit test reproduces.
 
 House style shared across all of Chris's Raycast extensions — Copy Error on every failure toast,
 `Keyboard.Shortcut.Common`, no `any`, generated `Preferences`/`Arguments` types — lives in
-`raycast-extension-workflows/plugins/raycast-extensions/reference/house-style.md`. It is not
+`/Users/messina/Developer/GitHub/chrismessina/raycast-extension-workflows/plugins/raycast-extensions/reference/house-style.md`. It is not
 restated here.
