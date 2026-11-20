@@ -25,3 +25,5 @@ docs/superpowers/
 
 # Mirror-only contributor guide; kept out of the Store PR (see contributing-template.md)
 CONTRIBUTING.md
+# Mirror-only until published; raycast/extensions' MIT license covers every extension
+LICENSE

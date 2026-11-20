@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 6, React 19, `@raycast/api` 1.104, `@raycast/utils` 2.2, `osascript -l JavaScript` (JXA). macOS only. **No test runner.**
 
-**Spec:** [`docs/superpowers/specs/2026-07-13-airbuddy-raycast-extension-design.md`](../specs/2026-07-13-airbuddy-raycast-extension-design.md) — the authority. Read it before Task 1.
+**Spec:** `docs/superpowers/specs/2026-07-13-airbuddy-raycast-extension-design.md` — the authority. Read it before Task 1.
 
 ## Global Constraints
 
