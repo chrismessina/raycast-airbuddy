@@ -22,3 +22,6 @@ FEEDBACK.md
 docs/superpowers/
 .superpowers
 .claude
+
+# Mirror-only contributor guide; kept out of the Store PR (see contributing-template.md)
+CONTRIBUTING.md
